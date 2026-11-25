@@ -264,10 +264,91 @@
         "report": "docs/verification-report-frontend.md"
       },
       "pr": {
+        "status": "merged",
+        "url": "https://github.com/vedantdev26/Claude_Capstone/pull/2",
+        "number": 2
+      }
+    },
+    {
+      "name": "student-status",
+      "userStory": "As an administrator, I want to mark a student as Active or Inactive so that I can manage student enrollment status.",
+      "branch": "feature/student-status",
+      "baseCommit": "bf91143",
+      "currentPhase": 2,
+      "approvedPlanAt": "2026-11-25T09:25:31.546Z",
+      "approvedBy": "user",
+      "decisions": [
+        "PATCH /students/{id}/status {status}; PUT preserves status",
+        "values exactly Active|Inactive (case-sensitive), else 422",
+        "POST accepts optional status, default Active; legacy records default Active",
+        "dashboard: status badge + per-row toggle; no status filter"
+      ],
+      "phases": {
+        "1": {
+          "name": "requirements",
+          "agent": "requirements-agent",
+          "artifact": "docs/requirements.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:29:18.059Z"
+        },
+        "2": {
+          "name": "architecture",
+          "agent": "architecture-agent",
+          "artifact": "docs/architecture.md",
+          "status": "pending"
+        },
+        "3": {
+          "name": "design-review",
+          "agent": "design-review-agent",
+          "artifact": "docs/design-review.md",
+          "status": "pending"
+        },
+        "4": {
+          "name": "planning",
+          "agent": "planning-agent",
+          "artifact": "docs/impl-plan.md",
+          "status": "pending"
+        },
+        "5": {
+          "name": "implementation",
+          "agent": "implementation-agent",
+          "artifact": "src/, public/, tests/",
+          "status": "pending"
+        },
+        "6": {
+          "name": "code-review",
+          "agent": "code-review-agent",
+          "artifact": "docs/code-review-student-status.md",
+          "status": "pending"
+        },
+        "7": {
+          "name": "verification",
+          "agent": "verification-agent",
+          "artifact": "docs/verification-report-student-status.md",
+          "status": "pending"
+        },
+        "8": {
+          "name": "pull-request",
+          "agent": "pr-agent",
+          "artifact": "pull request",
+          "status": "pending"
+        }
+      },
+      "tasks": [],
+      "pr": {
         "status": "not_created",
         "url": null,
         "number": null
-      }
+      },
+      "approvals": [
+        {
+          "phase": 1,
+          "name": "requirements",
+          "at": "2026-11-25T09:29:18.059Z",
+          "by": "user",
+          "note": "Approved with NFR-7/AC-29 reworded (exact-shape tests may add status:Active); PUT ignores status"
+        }
+      ]
     }
   ]
 }
