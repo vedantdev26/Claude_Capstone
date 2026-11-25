@@ -13,7 +13,7 @@
         <h1>Student Management</h1>
         <p class="subtitle">Add, find, update and remove student records</p>
       </div>
-      <div class="stat" aria-live="polite">
+      <div class="stat">
         <span class="stat-value" id="total-count">0</span>
         <span class="stat-label">students</span>
       </div>
@@ -21,7 +21,7 @@
   </header>
 
   <main class="container">
-    <div id="message" class="alert" role="status" aria-live="polite" hidden></div>
+    <div id="message" class="alert" role="status" hidden></div>
 
     <div class="layout">
       <section class="card" aria-labelledby="form-title">
@@ -60,24 +60,24 @@
         <p class="result-count" id="result-count" aria-live="polite">Loading...</p>
         <p class="empty" id="empty-state" hidden></p>
         <div class="table-wrap" id="table-wrap" hidden>
-          <table id="students-table">
-            <thead>
-              <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Course</th>
-                <th scope="col"><span class="visually-hidden">Actions</span></th>
+          <table id="students-table" role="table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">ID</th>
+                <th scope="col" role="columnheader">Name</th>
+                <th scope="col" role="columnheader">Email</th>
+                <th scope="col" role="columnheader">Course</th>
+                <th scope="col" role="columnheader"><span class="visually-hidden">Actions</span></th>
               </tr>
             </thead>
-            <tbody id="students-body"></tbody>
+            <tbody id="students-body" role="rowgroup"></tbody>
           </table>
         </div>
       </section>
     </div>
   </main>
 
-  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
     <form method="dialog">
       <h2 id="confirm-title">Delete student?</h2>
       <p id="confirm-text"></p>

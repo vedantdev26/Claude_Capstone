@@ -2,10 +2,10 @@
 
 class ApiError extends Error {
   constructor(status, error) {
-    super(error.message);
+    super(error.message || 'Request failed');
     this.status = status;
     this.code = error.code;
-    this.fields = error.fields || [];
+    this.fields = Array.isArray(error.fields) ? error.fields : [];
   }
 }
 
@@ -31,6 +31,9 @@ function createApi(fetchFn, base) {
     }
     if (!res.ok) {
       throw new ApiError(res.status, payload?.error ?? { code: 'HTTP_ERROR', message: `Request failed (${res.status})` });
+    }
+    if (payload === null) {
+      throw new ApiError(res.status, { code: 'BAD_RESPONSE', message: 'Unexpected response from the server.' });
     }
     return payload;
   }
@@ -69,11 +72,25 @@ function initDashboard(doc, api) {
   let editingId = null;
   let pendingDelete = null;
   let messageTimer = null;
+  let busy = false;
+
+  async function guarded(task) {
+    if (busy) return;
+    busy = true;
+    submitButton.disabled = true;
+    try {
+      await task();
+    } finally {
+      busy = false;
+      submitButton.disabled = false;
+    }
+  }
 
   function showMessage(text, type) {
     clearTimeout(messageTimer);
     message.textContent = text;
     message.className = `alert ${type}`;
+    message.setAttribute('role', type === 'error' ? 'alert' : 'status');
     message.hidden = false;
     if (type === 'success') messageTimer = setTimeout(clearMessage, 5000);
   }
@@ -98,6 +115,7 @@ function initDashboard(doc, api) {
 
   function cell(tr, label, text, className) {
     const td = doc.createElement('td');
+    td.setAttribute('role', 'cell');
     td.dataset.label = label;
     td.textContent = text;
     if (className) td.className = className;
@@ -120,6 +138,7 @@ function initDashboard(doc, api) {
     body.replaceChildren();
     for (const student of visible) {
       const tr = doc.createElement('tr');
+      tr.setAttribute('role', 'row');
       tr.dataset.id = String(student.id);
       if (student.id === editingId) tr.className = 'editing';
       cell(tr, 'ID', String(student.id));
@@ -149,10 +168,12 @@ function initDashboard(doc, api) {
 
   async function load() {
     try {
-      students = await api.list();
+      const list = await api.list();
+      if (!Array.isArray(list)) throw new ApiError(200, { code: 'BAD_RESPONSE', message: 'Unexpected response from the server.' });
+      students = list;
     } catch (err) {
-      showMessage(err.message, 'error');
-      resultCount.textContent = 'Could not load students';
+      showMessage(err instanceof ApiError ? err.message : 'Could not load students.', 'error');
+      resultCount.textContent = 'Could not load students. Reload the page to try again.';
       return;
     }
     render();
@@ -181,26 +202,10 @@ function initDashboard(doc, api) {
     inputs.name.focus();
   }
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    clearMessage();
-    clearFieldErrors();
-    const data = { name: inputs.name.value, email: inputs.email.value, course: inputs.course.value };
-    const wasEditing = editingId !== null;
-    submitButton.disabled = true;
-    try {
-      if (wasEditing) await api.update(editingId, data);
-      else await api.create(data);
-    } catch (err) {
-      handleSaveError(err, wasEditing);
-      submitButton.disabled = false;
-      return;
-    }
-    submitButton.disabled = false;
-    resetForm();
-    showMessage(wasEditing ? 'Student updated.' : 'Student added.', 'success');
-    await load();
-  });
+  function focusFirstInvalid() {
+    const first = Object.keys(inputs).find((field) => !$(`error-${field}`).hidden);
+    if (first) inputs[first].focus();
+  }
 
   function handleSaveError(err, wasEditing) {
     if (!(err instanceof ApiError)) {
@@ -208,13 +213,19 @@ function initDashboard(doc, api) {
       return;
     }
     if (err.code === 'VALIDATION_ERROR') {
+      let highlighted = 0;
       for (const { field, message: text } of err.fields) {
-        if (field in inputs) setFieldError(field, text);
+        if (Object.hasOwn(inputs, field)) {
+          setFieldError(field, text);
+          highlighted += 1;
+        }
       }
-      showMessage('Please correct the highlighted fields.', 'error');
+      showMessage(highlighted > 0 ? 'Please correct the highlighted fields.' : err.message, 'error');
+      focusFirstInvalid();
     } else if (err.code === 'CONFLICT') {
       setFieldError('email', err.message);
-      showMessage(err.message, 'error');
+      showMessage('Could not save: that email belongs to another student.', 'error');
+      focusFirstInvalid();
     } else if (err.code === 'NOT_FOUND' && wasEditing) {
       resetForm();
       showMessage(`${err.message}. It may have been deleted.`, 'error');
@@ -224,7 +235,49 @@ function initDashboard(doc, api) {
     }
   }
 
+  async function save() {
+    clearMessage();
+    clearFieldErrors();
+    const data = { name: inputs.name.value, email: inputs.email.value, course: inputs.course.value };
+    const wasEditing = editingId !== null;
+    try {
+      if (wasEditing) await api.update(editingId, data);
+      else await api.create(data);
+    } catch (err) {
+      handleSaveError(err, wasEditing);
+      return;
+    }
+    resetForm();
+    showMessage(wasEditing ? 'Student updated.' : 'Student added.', 'success');
+    await load();
+  }
+
+  async function removeStudent(student) {
+    clearMessage();
+    try {
+      await api.remove(student.id);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+        showMessage(`${student.name} was already deleted.`, 'success');
+        await load();
+      } else {
+        showMessage(err instanceof ApiError ? err.message : 'Unexpected error. Please try again.', 'error');
+      }
+      return;
+    }
+    if (editingId === student.id) resetForm();
+    showMessage(`Deleted ${student.name}.`, 'success');
+    await load();
+    search.focus();
+  }
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    guarded(save);
+  });
+
   cancelEdit.addEventListener('click', () => {
+    if (busy) return;
     clearMessage();
     resetForm();
     render();
@@ -233,6 +286,7 @@ function initDashboard(doc, api) {
   search.addEventListener('input', render);
 
   body.addEventListener('click', (event) => {
+    if (busy) return;
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const id = Number(button.closest('tr').dataset.id);
@@ -248,21 +302,10 @@ function initDashboard(doc, api) {
     }
   });
 
-  dialog.addEventListener('close', async () => {
+  dialog.addEventListener('close', () => {
     const student = pendingDelete;
     pendingDelete = null;
-    if (!student || dialog.returnValue !== 'confirm') return;
-    clearMessage();
-    try {
-      await api.remove(student.id);
-    } catch (err) {
-      showMessage(err instanceof ApiError ? err.message : 'Unexpected error. Please try again.', 'error');
-      if (err.code === 'NOT_FOUND') await load();
-      return;
-    }
-    if (editingId === student.id) resetForm();
-    showMessage(`Deleted ${student.name}.`, 'success');
-    await load();
+    if (student && dialog.returnValue === 'confirm') guarded(() => removeStudent(student));
   });
 
   load();

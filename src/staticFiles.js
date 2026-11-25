@@ -24,7 +24,7 @@ function loadStaticAssets(dir = PUBLIC_DIR) {
         'Content-Length': body.length,
         'Cache-Control': 'no-cache',
         'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'self'; frame-ancestors 'none'",
+        'Content-Security-Policy': "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       },
     });
   }

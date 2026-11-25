@@ -111,6 +111,7 @@ dialog p { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
   table, tbody, tr, td { display: block; width: 100%; }
   tbody tr { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; padding: 6px 0; }
   td[data-label="Email"] { min-width: 0; }
+  td { min-width: 0; overflow-wrap: anywhere; }
   td { border-bottom: none; padding: 6px 12px; display: flex; gap: 12px; justify-content: space-between; }
   td::before { content: attr(data-label); font-weight: 600; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; flex: 0 0 72px; }
   td.actions { justify-content: flex-end; }

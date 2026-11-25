@@ -10,6 +10,7 @@ const { createServer } = require('../src/server');
 const { ApiError, createApi, filterStudents } = require('../public/app.js');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const CSP = "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 const read = (file) => fs.readFileSync(path.join(PUBLIC_DIR, file));
 
 function listen(server) {
@@ -67,7 +68,7 @@ describe('Frontend: static serving (FR-12, AC-12)', () => {
       assert.match(res.headers['content-type'], type);
       assert.deepEqual(res.body, read(file));
       assert.equal(res.headers['x-content-type-options'], 'nosniff');
-      assert.match(res.headers['content-security-policy'], /default-src 'self'/);
+      assert.equal(res.headers['content-security-policy'], CSP);
       assert.equal(res.headers['access-control-allow-origin'], undefined);
     });
   }
@@ -83,6 +84,8 @@ describe('Frontend: static serving (FR-12, AC-12)', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.length, 0);
     assert.equal(Number(res.headers['content-length']), read('index.html').length);
+    assert.equal(res.headers['x-content-type-options'], 'nosniff');
+    assert.equal(res.headers['content-security-policy'], CSP);
   });
 
   test('other methods on asset paths are 405 JSON errors', async () => {
@@ -90,6 +93,8 @@ describe('Frontend: static serving (FR-12, AC-12)', () => {
       const res = await raw(env.port, { method, path: p });
       assert.equal(res.status, 405, `${method} ${p}`);
       assert.equal(JSON.parse(res.body).error.code, 'METHOD_NOT_ALLOWED');
+      assert.match(res.headers['content-type'], /^application\/json/);
+      assert.equal(res.headers['content-security-policy'], undefined);
     }
   });
 
@@ -139,7 +144,7 @@ describe('Frontend: HTML and JavaScript contract (NFR-6)', () => {
   });
 
   test('student data is rendered as text, never as HTML', () => {
-    assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(/.test(js));
+    assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|createContextualFragment|DOMParser|document\.write|eval\(|new Function|setAttribute\('on/.test(js));
     assert.match(js, /textContent/);
   });
 
@@ -224,17 +229,37 @@ describe('Frontend: API client against the real server (FR-13..FR-18)', () => {
     await assert.rejects(env.api.remove(999), (err) => err.status === 404 && err.code === 'NOT_FOUND');
   });
 
+  test('an oversize body maps to a readable 413 ApiError', async () => {
+    await assert.rejects(
+      env.api.create({ name: 'x'.repeat(11 * 1024), email: 'big@example.com', course: 'c' }),
+      (err) => err instanceof ApiError && err.status === 413 && err.code === 'PAYLOAD_TOO_LARGE',
+    );
+  });
+
+  test('non-JSON error bodies become HTTP_ERROR, non-JSON success bodies BAD_RESPONSE, missing messages get a default', async () => {
+    const respond = (status, text) => async () => new Response(text, { status });
+    await assert.rejects(createApi(respond(502, '<html>Bad gateway</html>'), '/students').list(), (err) => err.code === 'HTTP_ERROR' && err.status === 502 && /502/.test(err.message));
+    await assert.rejects(createApi(respond(200, 'not json'), '/students').list(), (err) => err.code === 'BAD_RESPONSE');
+    assert.equal(new ApiError(500, { code: 'X' }).message, 'Request failed');
+    assert.deepEqual(new ApiError(422, { code: 'VALIDATION_ERROR', fields: 'oops' }).fields, []);
+  });
+
   test('an unreachable server becomes a readable NETWORK_ERROR', async () => {
-    const dead = createApi(fetch, 'http://127.0.0.1:1/students');
+    const probe = http.createServer();
+    const port = await listen(probe);
+    await close(probe);
+    const dead = createApi(fetch, `http://127.0.0.1:${port}/students`);
     await assert.rejects(dead.list(), (err) => err instanceof ApiError && err.code === 'NETWORK_ERROR' && /Cannot reach the server/.test(err.message));
   });
 
   test('records added through the client persist across a server restart (JSON persistence)', async () => {
-    const before = await env.api.list();
-    assert.ok(before.length >= 2);
+    await env.api.create({ name: 'Persist One', email: 'persist1@example.com', course: 'A' });
+    await env.api.create({ name: 'Persist Two', email: 'persist2@example.com', course: 'B' });
+    const saved = await env.api.list();
+    assert.ok(saved.length >= 2);
     await close(env.server);
     await start(env);
-    const after = await createApi(fetch, `${env.base}/students`).list();
-    assert.deepEqual(after, before);
+    const reloaded = await createApi(fetch, `${env.base}/students`).list();
+    assert.deepEqual(reloaded, saved);
   });
 });
