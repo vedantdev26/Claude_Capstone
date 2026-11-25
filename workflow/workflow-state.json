@@ -274,7 +274,7 @@
       "userStory": "As an administrator, I want to mark a student as Active or Inactive so that I can manage student enrollment status.",
       "branch": "feature/student-status",
       "baseCommit": "bf91143",
-      "currentPhase": 4,
+      "currentPhase": 5,
       "approvedPlanAt": "2026-11-25T09:25:31.546Z",
       "approvedBy": "user",
       "decisions": [
@@ -309,7 +309,8 @@
           "name": "planning",
           "agent": "planning-agent",
           "artifact": "docs/impl-plan.md",
-          "status": "pending"
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:48:55.998Z"
         },
         "5": {
           "name": "implementation",
@@ -336,7 +337,88 @@
           "status": "pending"
         }
       },
-      "tasks": [],
+      "tasks": [
+        {
+          "id": "S-1",
+          "title": "`src/validation.js`: status rules",
+          "status": "todo"
+        },
+        {
+          "id": "S-2",
+          "title": "Validation tests for status",
+          "status": "todo"
+        },
+        {
+          "id": "S-3",
+          "title": "`src/studentRepository.js`: status support, plus minimal exact-shape test edits",
+          "status": "todo"
+        },
+        {
+          "id": "S-4",
+          "title": "Repository status tests (incl. DR-19 load/save)",
+          "status": "todo"
+        },
+        {
+          "id": "S-5",
+          "title": "`src/studentService.js`: create with status and `setStatus`",
+          "status": "todo"
+        },
+        {
+          "id": "S-6",
+          "title": "Service status tests (incl. DR-19 create)",
+          "status": "todo"
+        },
+        {
+          "id": "S-7",
+          "title": "`src/routes.js`: status path",
+          "status": "todo"
+        },
+        {
+          "id": "S-8",
+          "title": "API tests: PATCH behavior and status in all responses",
+          "status": "todo"
+        },
+        {
+          "id": "S-9",
+          "title": "API tests: routing, ID edges, legacy data and log hygiene",
+          "status": "todo"
+        },
+        {
+          "id": "S-10",
+          "title": "`public/app.js`: `createApi.setStatus` and its tests",
+          "status": "todo"
+        },
+        {
+          "id": "S-11",
+          "title": "Dashboard: Status column and badge",
+          "status": "todo"
+        },
+        {
+          "id": "S-12",
+          "title": "Dashboard: per-row status toggle",
+          "status": "todo"
+        },
+        {
+          "id": "S-13",
+          "title": "`scripts/browser-check.js`: status section (DR-21, DR-23)",
+          "status": "todo"
+        },
+        {
+          "id": "S-14",
+          "title": "README: status",
+          "status": "todo"
+        },
+        {
+          "id": "S-15",
+          "title": "`docs/CHANGELOG.md`: status entry",
+          "status": "todo"
+        },
+        {
+          "id": "S-16",
+          "title": "Final check: full suite and clean tree",
+          "status": "todo"
+        }
+      ],
       "pr": {
         "status": "not_created",
         "url": null,
@@ -363,6 +445,12 @@
           "at": "2026-11-25T09:45:11.393Z",
           "by": "user",
           "note": "Option A: DR-16,17,18,20,22 applied to architecture.md; DR-19,21,23 carried to planning/implementation"
+        },
+        {
+          "phase": 4,
+          "name": "planning",
+          "at": "2026-11-25T09:48:55.998Z",
+          "by": "user"
         }
       ],
       "carriedFindings": [
