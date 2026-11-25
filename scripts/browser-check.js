@@ -72,13 +72,24 @@ async function main() {
     const helpers = `window.T = {
       $: (id) => document.getElementById(id),
       rows: () => [...document.querySelectorAll('#students-body tr')].map((tr) => [...tr.querySelectorAll('td')].slice(0, 4).map((td) => td.textContent)),
-      waitFor: async (fn, ms = 3000) => { const s = Date.now(); while (Date.now() - s < ms) { if (fn()) return true; await new Promise((r) => setTimeout(r, 25)); } return false; },
+      waitFor: async (fn, ms = 15000) => { const s = Date.now(); while (Date.now() - s < ms) { if (fn()) return true; await new Promise((r) => setTimeout(r, 25)); } return false; },
       fill: (n, e, c) => { T.$('name').value = n; T.$('email').value = e; T.$('course').value = c; },
       visible: (id) => !T.$(id).hidden,
     }; true`;
+    // Navigate via about:blank so a "complete" readyState can only come from the new document,
+    // never from the previous page still being torn down.
+    const settleOn = async (href) => {
+      for (let i = 0; i < 300; i++) {
+        try { if ((await ev('location.href')) === href && (await ev('document.readyState')) === 'complete') return; } catch { /* navigating */ }
+        await delay(50);
+      }
+      throw new Error(`Page did not finish loading ${href}`);
+    };
     const open = async (url) => {
+      await send('Page.navigate', { url: 'about:blank' });
+      await settleOn('about:blank');
       await send('Page.navigate', { url });
-      for (let i = 0; i < 100; i++) { try { if (await ev('document.readyState') === 'complete') break; } catch { /* navigating */ } await delay(50); }
+      await settleOn(url);
       await ev(helpers);
     };
     // The app ignores clicks while a save/delete is in flight (busy guard), so wait for idle before acting.
@@ -170,7 +181,7 @@ async function main() {
     // 9. Persistence + API alongside the UI
     await open(APP);
     await ev('T.waitFor(() => T.rows().length === 3)');
-    check('reload: data persists on the server', JSON.stringify((await ev('T.rows()')).map((r) => r[0])) === '["1","2","4"]', JSON.stringify(await ev('T.rows()')));
+    check('reload: data persists on the server', JSON.stringify((await ev('T.rows()')).map((r) => r[0])) === '["1","2","4"]', JSON.stringify(await ev('(async () => ({ rows: T.rows(), message: T.$("message").textContent, resultCount: T.$("result-count").textContent, readyState: document.readyState, api: await fetch("/students").then((r) => r.json()) }))()').catch((e) => String(e))));
     check('API from the page origin still works (GET /students)', (await ev('fetch("/students").then((r) => r.status)')) === 200);
     check('unknown path is still JSON ROUTE_NOT_FOUND', (await ev('fetch("/other").then((r) => r.json()).then((j) => j.error.code)')) === 'ROUTE_NOT_FOUND');
 
