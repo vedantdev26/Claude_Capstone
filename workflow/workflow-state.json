@@ -1,7 +1,7 @@
 {
   "project": "student-management-system",
   "userStory": "As an administrator, I want to add, view, update, and delete student records so that I can manage student information efficiently.",
-  "currentPhase": 2,
+  "currentPhase": 3,
   "phases": {
     "1": {
       "name": "requirements",
@@ -14,14 +14,14 @@
       "name": "architecture",
       "agent": "architecture-agent",
       "artifact": "docs/architecture.md",
-      "status": "in_progress",
-      "approvedAt": null
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:07:42+05:30"
     },
     "3": {
       "name": "design-review",
       "agent": "design-review-agent",
       "artifact": "docs/design-review.md",
-      "status": "pending",
+      "status": "in_progress",
       "approvedAt": null
     },
     "4": {
@@ -65,6 +65,12 @@
       "phase": 1,
       "name": "requirements",
       "at": "2026-11-25T12:04:17+05:30",
+      "by": "user"
+    },
+    {
+      "phase": 2,
+      "name": "architecture",
+      "at": "2026-11-25T12:07:42+05:30",
       "by": "user"
     }
   ],
