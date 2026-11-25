@@ -12,7 +12,7 @@ Based on `docs/requirements.md` (approved). Repo is empty (no existing code or s
 ## 2. Components
 | Component | File | Responsibility |
 |---|---|---|
-| Server bootstrap | `src/server.js` | Export `createServer({filePath, host, port})` (wires dependencies, returns the server); call `listen` only under `require.main === module`, with `PORT` (default 3000), `HOST` (default `127.0.0.1`, loopback only; env-overridable), optional `DATA_FILE`. Relies on `server.headersTimeout`/`requestTimeout` (Node defaults or set explicitly). Sends no CORS headers |
+| Server bootstrap | `src/server.js` | Export `createServer({filePath, writer, log, logError})` (wires dependencies, returns a non-listening server; `writer`, `log` and `logError` are injectable for tests); call `listen` only under `require.main === module`, with `PORT` (default 3000; must be an integer 0-65535), `HOST` (default `127.0.0.1`, loopback only; env-overridable), optional `DATA_FILE`. An invalid `PORT`, an invalid data file or a listen error (e.g. `EADDRINUSE`) logs `Startup failed: <message>` and exits 1. Relies on `server.headersTimeout`/`requestTimeout` (Node defaults or set explicitly). Sends no CORS headers |
 | Router / handlers | `src/routes.js` | Apply the routing rule (s4), parse ID and JSON body (streaming size limit, content-type check), call service, map results/errors to HTTP responses, log requests |
 | Validator | `src/validation.js` | Normalize and validate student input (one function used by add and update, NFR-3), returning a fresh object built from exactly `name`, `email`, `course`; validate ID format |
 | Student service | `src/studentService.js` | Business rules: create, list, get, update, delete; duplicate-email check; throws typed errors |
@@ -132,10 +132,10 @@ tests/  validation.test.js     (unit: required/blank/format/length, ID format, e
 data/   students.json          (created at runtime; must be git-ignored)
 package.json                   ("start": "node src/server.js", "test": "node --test tests/")
 ```
-- `createServer({filePath, host, port})` is exported from `server.js`; `listen` runs only under `require.main === module`. The repository accepts a file path or none (in-memory) and an injectable writer, so tests are isolated and can force a save failure.
+- `createServer({filePath, writer, log, logError})` is exported from `server.js`; tests listen on port 0 themselves; `listen` runs only under `require.main === module`. The repository accepts a file path or none (in-memory) and an injectable writer, so tests are isolated and can force a save failure.
 - Every FR and AC has at least one test; each error row in section 4 has an API-level test, including "data unchanged after failure" (AC-11), done by injecting a failing writer and asserting 500, unchanged state and `nextId` not consumed.
 - Required cases beyond the basics:
-  - Email: `abc`, `a@b`, `a@.com`, `a@b.`, `a@@b.c`, `a b@c.d`, `a@b.c\n` rejected; a 255-char email rejected; `a@b.co` accepted.
+  - Email: `abc`, `a@b`, `a@.com`, `a@b.`, `a@@b.c`, `a b@c.d`, `a@b.c\nx`, `a@b\n.c` rejected; a 255-char email rejected; `a@b.co` accepted. Surrounding whitespace is trimmed before validation (s3), so `a@b.c\n` is accepted and stored as `a@b.c`; only interior whitespace is rejected.
   - Routing: `PUT /students`, `DELETE /students`, `PUT /students/` -> 400 `INVALID_ID`; `GET /students/` equals list; query string ignored; `/students/1/x` -> `ROUTE_NOT_FOUND`; `POST /students/1` -> 405.
   - ID: `0`, `007`, `1e3`, `0x10`, `12abc`, `%31` (valid), `1%00`, `9007199254740993`.
   - `PUT /students/999` with an invalid body -> 404; invalid ID with bad body -> 400.
@@ -182,3 +182,9 @@ Source: `docs/design-review.md`.
 - DR-13 -> s2 server bootstrap and repository, s7 testing approach
 - DR-14 -> s1 atomic write, s6 failed-save behavior
 - DR-15 (partial) -> rollback dropped for build-then-swap (s6); `Allow` header made optional (s4); other items (405/404 split, errors carrying HTTP status) intentionally kept as is
+
+## 10. Post-implementation amendments
+Source: `docs/code-review.md` (user-approved 2026-11-25).
+- F-3 (accepted deviation): the email is trimmed before the regex runs, per the s3 data model ("trimmed"), so `a@b.c\n` is accepted as `a@b.c`. Rationale: consistent with name/course handling and safe (stored value is clean). The s7 test list was corrected to cases that remain rejected.
+- F-4 (accepted deviation): `createServer` takes `{filePath, writer, log, logError}` instead of `{filePath, host, port}`. Rationale: injectable writer and loggers make failure and log-hygiene tests possible; `host`/`port` are bootstrap concerns read from the environment under `require.main === module`. s2 and s7 updated.
+- F-1 and F-2 fixed in code: a client abort mid-body is dropped silently (no 500, no error log); an invalid `PORT` or a listen error exits 1 with `Startup failed: <message>`.
