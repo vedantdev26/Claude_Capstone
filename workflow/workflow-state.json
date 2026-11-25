@@ -274,7 +274,7 @@
       "userStory": "As an administrator, I want to mark a student as Active or Inactive so that I can manage student enrollment status.",
       "branch": "feature/student-status",
       "baseCommit": "bf91143",
-      "currentPhase": 6,
+      "currentPhase": 7,
       "approvedPlanAt": "2026-11-25T09:25:31.546Z",
       "approvedBy": "user",
       "decisions": [
@@ -323,7 +323,8 @@
           "name": "code-review",
           "agent": "code-review-agent",
           "artifact": "docs/code-review-student-status.md",
-          "status": "awaiting_approval"
+          "status": "approved",
+          "approvedAt": "2026-11-25T10:21:54.986Z"
         },
         "7": {
           "name": "verification",
@@ -459,6 +460,13 @@
           "at": "2026-11-25T10:11:47.616Z",
           "by": "user",
           "note": "npm test 220/220; browser check 47/47"
+        },
+        {
+          "phase": 6,
+          "name": "code-review",
+          "at": "2026-11-25T10:21:54.986Z",
+          "by": "user",
+          "note": "CR-1, CR-2 fixed; re-review verdict APPROVE"
         }
       ],
       "carriedFindings": [
