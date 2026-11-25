@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student Management</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="container header-inner">
+      <div>
+        <h1>Student Management</h1>
+        <p class="subtitle">Add, find, update and remove student records</p>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="total-count">0</span>
+        <span class="stat-label">students</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message" class="alert" role="status" hidden></div>
+
+    <div class="layout">
+      <section class="card" aria-labelledby="form-title">
+        <h2 id="form-title">Add Student</h2>
+        <form id="student-form" novalidate>
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" autocomplete="off" aria-describedby="error-name">
+            <p class="field-error" id="error-name" hidden></p>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="off" aria-describedby="error-email">
+            <p class="field-error" id="error-email" hidden></p>
+          </div>
+          <div class="field">
+            <label for="course">Course</label>
+            <input id="course" name="course" type="text" autocomplete="off" aria-describedby="error-course">
+            <p class="field-error" id="error-course" hidden></p>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submit-button">Add Student</button>
+            <button type="button" class="btn btn-secondary" id="cancel-edit" hidden>Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="list-title">
+        <div class="list-header">
+          <h2 id="list-title">Students</h2>
+          <div class="search">
+            <label for="search" class="visually-hidden">Search students</label>
+            <input id="search" type="search" placeholder="Search by name, email or course" autocomplete="off">
+          </div>
+        </div>
+        <p class="result-count" id="result-count" aria-live="polite">Loading...</p>
+        <p class="empty" id="empty-state" hidden></p>
+        <div class="table-wrap" id="table-wrap" hidden>
+          <table id="students-table" role="table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">ID</th>
+                <th scope="col" role="columnheader">Name</th>
+                <th scope="col" role="columnheader">Email</th>
+                <th scope="col" role="columnheader">Course</th>
+                <th scope="col" role="columnheader"><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="students-body" role="rowgroup"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog">
+      <h2 id="confirm-title">Delete student?</h2>
+      <p id="confirm-text"></p>
+      <div class="dialog-actions">
+        <button type="submit" value="cancel" class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button type="submit" value="confirm" class="btn btn-danger" id="confirm-delete">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

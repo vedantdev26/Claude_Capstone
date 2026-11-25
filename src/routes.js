@@ -10,6 +10,7 @@ const {
   MethodNotAllowedError,
 } = require('./errors');
 const { parseId } = require('./validation');
+const { loadStaticAssets, sendAsset } = require('./staticFiles');
 
 const ROUTE_RE = /^\/students(?:\/([^/]*))?\/?$/;
 const MAX_BODY_BYTES = 10 * 1024;
@@ -71,8 +72,12 @@ async function readJsonObject(req) {
 }
 
 function createHandler(service, { log = console.log, logError = console.error } = {}) {
+  const assets = loadStaticAssets();
+
   async function dispatch(req, res) {
     const path = req.url.split('?')[0];
+    const asset = assets.get(path);
+    if (asset) return sendAsset(req, res, asset);
     const match = ROUTE_RE.exec(path);
     if (!match) throw new RouteNotFoundError();
     const segment = match[1];

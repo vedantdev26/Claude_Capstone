@@ -1,6 +1,6 @@
 # Student Management API
 
-A small REST API for managing student records (add, list, view, update, delete). Node.js, CommonJS, no runtime dependencies. Data is kept in a JSON file.
+A small full-stack app for managing student records: a Node.js REST API plus a browser dashboard (HTML, CSS and vanilla JavaScript, no frameworks). Node.js, CommonJS, no runtime dependencies. Data is kept in a JSON file.
 
 ## Requirements
 - Node.js 26 or newer. Nothing to install: `npm install` is not needed.
@@ -9,7 +9,7 @@ A small REST API for managing student records (add, list, view, update, delete).
 ```sh
 npm start
 ```
-The server listens on `http://127.0.0.1:3000` (loopback only) and prints the address when ready.
+The server listens on `http://127.0.0.1:3000` (loopback only) and prints the address when ready. Open that address in a browser to use the dashboard. If the page still shows `ROUTE_NOT_FOUND`, an older server is still running on that port: stop it and run `npm start` again.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -27,6 +27,17 @@ If the data file exists but is invalid, the server refuses to start and does not
 ```sh
 npm test
 ```
+`npm test` needs nothing but Node. To also exercise the dashboard in a real browser, run `npm run test:browser` (needs Chrome, Chromium or Edge installed; set `CHROME_PATH` if it is not found; it uses its own port and a temporary data file).
+
+## Dashboard
+Open `http://127.0.0.1:3000/`:
+- **Add Student**: fill name, email and course. Validation errors from the API appear next to the fields, and a success message confirms the save.
+- **Students table**: lists every student with a live count and an empty state.
+- **Search**: type in the search box to filter by name, email or course (case-insensitive, done in the browser).
+- **Edit**: click Edit to load a student into the form, change it, then Save Changes (or Cancel).
+- **Delete**: click Delete and confirm in the dialog; Cancel leaves the student untouched.
+
+The layout is responsive: on narrow screens the table becomes stacked cards. The files live in `public/` and are served by the same Node app (only `/`, `/styles.css` and `/app.js`); the dashboard calls the REST API below with `fetch()`.
 
 ## API
 A student is `{ "id", "name", "email", "course" }`. `name` and `course` are 1-100 characters; `email` must be a valid address (max 254 characters) and unique, ignoring letter case. `id` is assigned by the server. `POST` and `PUT` need `Content-Type: application/json`; request bodies are limited to 10 KB.

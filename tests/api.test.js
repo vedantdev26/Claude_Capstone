@@ -181,7 +181,7 @@ describe('API: happy path and routing', () => {
   });
 
   test('unknown or too-deep paths are ROUTE_NOT_FOUND with a fixed message', async () => {
-    for (const p of ['/students/1/x', '/other', '/', '/students/1/2/3']) {
+    for (const p of ['/students/1/x', '/other', '/students/1/2/3']) {
       const res = await send(env.port, { path: p });
       assertError(res, 404, 'ROUTE_NOT_FOUND');
       assert.ok(!res.text.includes('other'));
