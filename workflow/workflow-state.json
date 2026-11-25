@@ -231,5 +231,43 @@
     "url": "https://github.com/vedantdev26/Claude_Capstone/pull/1",
     "number": 1,
     "mergeCommit": "734dbded98659507dc59b7a71e811009b89a2199"
-  }
+  },
+  "iterations": [
+    {
+      "name": "frontend",
+      "branch": "feature/frontend",
+      "approvedPlanAt": "2026-11-25T09:10:22.446Z",
+      "approvedBy": "user",
+      "decisions": [
+        "client-side search",
+        "native dialog for delete confirmation",
+        "requirements and architecture amended (FR-12..FR-18, architecture s11)"
+      ],
+      "artifacts": [
+        "public/index.html",
+        "public/styles.css",
+        "public/app.js",
+        "src/staticFiles.js",
+        "tests/frontend.test.js",
+        "scripts/browser-check.js",
+        "docs/code-review-frontend.md",
+        "docs/verification-report-frontend.md"
+      ],
+      "codeReview": {
+        "status": "approve-with-changes, fixed",
+        "report": "docs/code-review-frontend.md"
+      },
+      "verification": {
+        "status": "passed",
+        "npmTest": "138/138",
+        "browserCheck": "35 checks; round 1 failed (script race), round 2 14/16, round 3 18/18",
+        "report": "docs/verification-report-frontend.md"
+      },
+      "pr": {
+        "status": "not_created",
+        "url": null,
+        "number": null
+      }
+    }
+  ]
 }
