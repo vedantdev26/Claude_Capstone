@@ -274,7 +274,7 @@
       "userStory": "As an administrator, I want to mark a student as Active or Inactive so that I can manage student enrollment status.",
       "branch": "feature/student-status",
       "baseCommit": "bf91143",
-      "currentPhase": 3,
+      "currentPhase": 4,
       "approvedPlanAt": "2026-11-25T09:25:31.546Z",
       "approvedBy": "user",
       "decisions": [
@@ -302,7 +302,8 @@
           "name": "design-review",
           "agent": "design-review-agent",
           "artifact": "docs/design-review.md",
-          "status": "pending"
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:45:11.393Z"
         },
         "4": {
           "name": "planning",
@@ -355,7 +356,19 @@
           "at": "2026-11-25T09:36:30.620Z",
           "by": "user",
           "note": "Defaults accepted: 400 INVALID_JSON for empty/non-JSON PATCH body; /students//status -> 400 INVALID_ID"
+        },
+        {
+          "phase": 3,
+          "name": "design-review",
+          "at": "2026-11-25T09:45:11.393Z",
+          "by": "user",
+          "note": "Option A: DR-16,17,18,20,22 applied to architecture.md; DR-19,21,23 carried to planning/implementation"
         }
+      ],
+      "carriedFindings": [
+        "DR-19: tests that loader and service.create pass acceptStatus (Inactive must not reset to Active)",
+        "DR-21: toggle success message uses server response",
+        "DR-23: drop busy-guard in-flight and duplicate textContent/CSP checks from browser-check.js"
       ]
     }
   ]

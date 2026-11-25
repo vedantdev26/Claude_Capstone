@@ -83,7 +83,7 @@ All failures return `Content-Type: application/json`:
 | Email already used by another student (case-insensitive) | 409 | `CONFLICT` (message names `email`) | FR-9 / AC-8 |
 | Unknown or too-deep path | 404 | `ROUTE_NOT_FOUND` (fixed message, path not echoed) | - |
 | Known path, unsupported method | 405 | `METHOD_NOT_ALLOWED` (`Allow` header optional) | - |
-| `POST`/`PUT` without `application/json` content type | 415 | `UNSUPPORTED_MEDIA_TYPE` | - |
+| `POST`/`PUT`/`PATCH` without `application/json` content type | 415 | `UNSUPPORTED_MEDIA_TYPE` | - |
 | Body larger than 10 KB | 413 | `PAYLOAD_TOO_LARGE` (fixed message; `Connection: close`) | - |
 | Unexpected failure, including failed save | 500 | `INTERNAL_ERROR`, generic message only | NFR-2 |
 
@@ -94,7 +94,7 @@ Body limit: bytes are counted while the request streams (covers chunked bodies, 
 Check order per request (first failing check wins):
 1. route/method (404 `ROUTE_NOT_FOUND` / 405; `PUT`/`DELETE` with missing ID are 400 per the routing rule)
 2. ID format (400)
-3. content type, `POST`/`PUT` only (415)
+3. content type, `POST`/`PUT`/`PATCH` only (415)
 4. body size, enforced while reading (413)
 5. body JSON, must be an object (400)
 6. update only: existence (404)
@@ -119,6 +119,7 @@ Each flow follows the check order in s4 and runs the service call (check + build
 Add: parse body -> validate -> check duplicate email -> build new state with `nextId` -> save file -> swap in memory -> 201.
 Update: validate ID -> parse body -> find (404) -> validate fields (422) -> duplicate check excluding own id (409) -> build new state -> save -> swap -> 200.
 Delete: validate ID -> find (404) -> build state without record -> save -> swap -> 204.
+Change status (Amendment 3, s12.3): validate ID -> content type (415) -> read body (413) -> JSON object (400) -> find (404) -> validate status (422) -> build new state -> save -> swap -> 200.
 
 ## 6. Error handling and validation strategy
 - All validation and rule checks happen before any write. Persistence is build-then-swap (no rollback): compute the new state, write it (`students.json.tmp` then rename), and only then replace the in-memory state. A failed request never changes stored data (NFR-2). If saving fails, the temp file is removed, in-memory state stays unchanged, `nextId` is not consumed, and `500 INTERNAL_ERROR` is returned.
@@ -133,6 +134,7 @@ Delete: validate ID -> find (404) -> build state without record -> save -> swap 
 src/    server.js routes.js validation.js studentService.js studentRepository.js errors.js
 tests/  validation.test.js     (unit: required/blank/format/length, ID format, email cases, __proto__/constructor keys)
         studentService.test.js (service + in-memory repository: CRUD, duplicates, ID not reused)
+        studentRepository.test.js (data-file load/save, legacy records, setStatus, failing writer; see s12.6)
         frontend.test.js       (static serving, HTML/JS contract, client API + search against a real server)
         api.test.js            (HTTP: createServer on port 0, host 127.0.0.1, temp data file; status codes + error format)
 public/ index.html styles.css app.js   (frontend, served by the Node app)
@@ -145,6 +147,7 @@ package.json                   ("start": "node src/server.js", "test": "node --t
   - Email: `abc`, `a@b`, `a@.com`, `a@b.`, `a@@b.c`, `a b@c.d`, `a@b.c\nx`, `a@b\n.c` rejected; a 255-char email rejected; `a@b.co` accepted. Surrounding whitespace is trimmed before validation (s3), so `a@b.c\n` is accepted and stored as `a@b.c`; only interior whitespace is rejected.
   - Routing: `PUT /students`, `DELETE /students`, `PUT /students/` -> 400 `INVALID_ID`; `GET /students/` equals list; query string ignored; `/students/1/x` -> `ROUTE_NOT_FOUND`; `POST /students/1` -> 405.
   - ID: `0`, `007`, `1e3`, `0x10`, `12abc`, `%31` (valid), `1%00`, `9007199254740993`.
+  - PATCH routing and status (Amendment 3, details in s12.3 and s12.6): `PATCH /students/{id}/status` success and 415/413/400/404/422 order; `PATCH /students`, `PATCH /students/status`, `PATCH /students//`, `PATCH /students/1` -> 405; `PATCH /students//status` -> 400 `INVALID_ID`; `GET /students/1/status` -> 405; `/students/1/Status` -> 404.
   - `PUT /students/999` with an invalid body -> 404; invalid ID with bad body -> 400.
   - `text/plain` POST/PUT -> 415; body over 10 KB (Content-Length and chunked) -> 413 with `Connection: close`; body on `GET`/`DELETE` ignored.
   - Body with `__proto__` and `constructor` keys: no effect on stored records or the prototype.
@@ -191,6 +194,8 @@ Source: `docs/design-review.md`.
 - DR-14 -> s1 atomic write, s6 failed-save behavior
 - DR-15 (partial) -> rollback dropped for build-then-swap (s6); `Allow` header made optional (s4); other items (405/404 split, errors carrying HTTP status) intentionally kept as is
 
+- Amendment 3 review (DR-16..DR-23, user-approved): applied in this document: DR-16 (s4, s5, s7), DR-17 (s12.3, s12.9), DR-18 (s12.3, s12.6), DR-20 (s12.9 item 4), DR-22 (s12.8 rows FR-22, FR-24; s8 points there). Carried to planning/implementation, not applied here: DR-19 (three extra status-survival tests), DR-21 (toggle message from the returned student, `clearMessage()` first), DR-23 (drop the in-flight-click browser step).
+
 ## 10. Post-implementation amendments
 Source: `docs/code-review.md` (user-approved 2026-11-25).
 - F-3 (accepted deviation): the email is trimmed before the regex runs, per the s3 data model ("trimmed"), so `a@b.c\n` is accepted as `a@b.c`. Rationale: consistent with name/course handling and safe (stored value is clean). The s7 test list was corrected to cases that remain rejected.
@@ -224,8 +229,9 @@ Stack unchanged, no new files in `src/`, no new dependencies. Status is a plain 
 ### 12.3 API and routing
 `ROUTE_RE` becomes `^/students(?:/([^/]*)(?:/(status))?)?/?$` (still linear; second group is the literal `status`, case-sensitive). Dispatch, in order, after the static-asset check and before the collection branch:
 1. **Status path** (group 2 = `status`; includes `/students//status` with an empty ID, and an optional single trailing slash): any method other than `PATCH` = `405 METHOD_NOT_ALLOWED`. `PATCH`: `parseId(segment)` (existing ID rule; empty segment -> `400 INVALID_ID` "Student ID is required"; `abc`, `0`, `007`, `1e3`, oversize -> `400 INVALID_ID`; `%31` accepted) -> content type must be `application/json` (else `415`) -> read body (10 KB limit, `413`) -> JSON object (else `400 INVALID_JSON`, which covers empty body, invalid JSON and non-object bodies; AC-22 "or the body") -> `service.setStatus(id, body)` -> `200` + student.
-2. Collection and single-ID branches are unchanged. `PATCH /students` and `PATCH /students/{id}` (no `/status`) stay `405`; `/students/1/x`, `/students/1/Status`, `/students/1/status/x`, `/students/1//` stay `404 ROUTE_NOT_FOUND`. Query string ignored; the method check comes before ID validation (so `GET /students/abc/status` is `405`, as `POST /students/abc` is today).
+2. Collection and single-ID branches are unchanged. `PATCH /students` and `PATCH /students/{id}` (no `/status`) stay `405`; `/students/1/x`, `/students/1/Status`, `/students/1/status/x`, `/students/1//` stay `404 ROUTE_NOT_FOUND`. Deliberate "missing ID" reading (DR-17): `PATCH /students/status` (parsed as the single ID segment `status`), `PATCH /students` and `PATCH /students//` are `405`, because PATCH is not a collection or single-ID method (same as `POST /students/abc` today); only `PATCH /students//status` is `400 INVALID_ID`. Verification should not report the `405`s as AC-23 deviations. Query string ignored; the method check comes before ID validation (so `GET /students/abc/status` is `405`, as `POST /students/abc` is today).
 - Check order for `PATCH` follows `PUT` (s4 list): route/method, ID (400), content type (415), size (413), JSON object (400), existence (404), field validation (422). Duplicate-email check does not apply. So `PATCH /students/999/status` with a bad body is `404`, not `422` (as PUT, AC-9), and `{}` or `{"status":"active"}` on an existing student is `422` naming `status`.
+- Unknown fields in the `PATCH` body (`name`, `email`, `course`, `id`, ...) are ignored; only `status` is read, so nothing else can change (FR-23).
 - `service.setStatus(id, input)`: `requireStudent(id)` (404 `NOT_FOUND`) -> `validateStatusChange(input)` (422) -> `repository.setStatus(id, status)` -> returns the updated copy.
 - Setting the current status succeeds (`200`, same body); it still performs the normal save (no special no-op path, one code path).
 - `POST /students`: `status` optional; absent -> `Active`; present -> must pass `checkStatus` (`null`, `""`, `1`, `"active"`, `" Active"` -> `422` with a `status` field entry, possibly alongside other fields). `201` + student with status, `Location` unchanged.
@@ -259,7 +265,7 @@ New tests (additive, no existing test removed or weakened):
 - `validation.test.js`: `checkStatus` via `validateStatusChange` and `validateStudent(..., {acceptStatus:true})` for `active`, `INACTIVE`, ` Active`, `Active `, `Active\n`, `""`, `null`, `1`, `true`, `[]`, `{}`, `Suspended`, missing; default option ignores a bad `status`; multi-field order; own-key check (`__proto__`/inherited `status` has no effect).
 - `studentRepository.test.js`: legacy file (no `status`) loads as `Active` and the file bytes are unchanged after load; present invalid status (`null`, `"x"`) fails startup with file untouched; mixed legacy/explicit file; `setStatus` persists and survives reload; failing writer on `setStatus` leaves memory, file and `nextId` unchanged; `update` preserves `Inactive`; unknown ID returns `undefined`.
 - `studentService.test.js`: create default/explicit/invalid status; `setStatus` 404 before 422; same-status success; PUT with `status` (valid and garbage) ignored; inactive student still blocks duplicate email on create and update (AC-26) and is still listed, got and deleted.
-- `api.test.js`: PATCH success both ways with full-shape and unchanged other fields (AC-21); same-status; later GET shows new status; AC-20 value table on POST and PATCH (422, `status` field, data unchanged); POST multi-field error; `{}`, empty body, invalid JSON, array body -> 400 `INVALID_JSON`; `text/plain` -> 415; body over 10 KB -> 413; ID cases (`/students//status`, `abc`, `0`, `007`, `%31` valid, oversize) -> 400/404 as specified; unknown ID with bad body -> 404; 405 for GET/POST/PUT/DELETE on `/students/1/status` and for `PATCH /students` and `PATCH /students/1`; 404 `ROUTE_NOT_FOUND` for `/students/1/Status`, `/students/1/status/x`; trailing slash and query string accepted; PUT ignores `status` and preserves `Inactive` (AC-24); `status` present in list/get/create/update/patch (AC-25); failing writer on PATCH -> 500 `INTERNAL_ERROR`, state unchanged; log/error output has no body; server started on a legacy data file lists `Active` (AC-19).
+- `api.test.js`: PATCH success both ways with full-shape and unchanged other fields (AC-21); same-status; later GET shows new status; AC-20 value table on POST and PATCH (422, `status` field, data unchanged); POST multi-field error; empty body, invalid JSON, array body -> 400 `INVALID_JSON` (these send `Content-Type: application/json`; the same empty body without a content type -> 415); `{}` on an existing student -> 422 naming `status`; `text/plain` -> 415; body over 10 KB -> 413; ID cases (`/students//status`, `abc`, `0`, `007`, `%31` valid, oversize) -> 400/404 as specified; unknown ID: body `{"status":"nope"}` -> 404 (valid JSON object, so existence is checked before 422), while an invalid-JSON, empty or array body on an unknown ID -> 400 `INVALID_JSON` (step 5 precedes the 404); extra body fields (`name`, `id`, `email`) on a valid PATCH are ignored and change nothing; 405 for GET/POST/PUT/DELETE on `/students/1/status` and for `PATCH /students`, `PATCH /students/status`, `PATCH /students//` and `PATCH /students/1` (DR-17); 404 `ROUTE_NOT_FOUND` for `/students/1/Status`, `/students/1/status/x`; trailing slash and query string accepted; PUT ignores `status` and preserves `Inactive` (AC-24); `status` present in list/get/create/update/patch (AC-25); failing writer on PATCH -> 500 `INTERNAL_ERROR`, state unchanged; log/error output has no body; server started on a legacy data file lists `Active` (AC-19).
 - `frontend.test.js`: `createApi.setStatus` against a real server (success, 404 `NOT_FOUND`, 422 `fields`); contract checks that `app.js` has no `innerHTML`/`eval`, `index.html` has the Status header, `styles.css` defines both badge classes; CSP header test unchanged.
 - `scripts/browser-check.js`: extend with a status section after the existing edit/delete steps, using its existing helpers: seeded legacy record (no status in the temp data file) shows badge `Active`; badges for both statuses; toggle flips badge/button label and shows the success message; second toggle reverses; row for a student deleted via the API in the background shows an error message and the row disappears after reload; clicks during an in-flight request are ignored (busy guard); a name like `<b>x</b>` renders as text in the row with a badge; CSP/console shows no violations if the script already checks this.
 
@@ -279,9 +285,9 @@ New tests (additive, no existing test removed or weakened):
 | FR-19 | `checkStatus` + `STATUSES` (validation); s12.1 |
 | FR-20 | `POST /students`; `validateStudent(..., {acceptStatus:true})`, repository `create` default |
 | FR-21 | loader normalization (repository, s12.1); AC-19 tests |
-| FR-22 | shared `checkStatus` in POST and PATCH paths -> `422` field `status` |
+| FR-22 | shared `checkStatus` in POST and PATCH paths -> `422` field `status`. User-accepted (DR-22): non-JSON, empty or non-object PATCH body -> `400 INVALID_JSON` (AC-22 "or the body"); `{}` or missing `status` in a valid JSON object -> `422` naming `status` |
 | FR-23 | `PATCH /students/{id}/status`; routes status branch, `service.setStatus`, `validateStatusChange`, `repository.setStatus` |
-| FR-24 | `parseId` -> `400 INVALID_ID`; `requireStudent` -> `404 NOT_FOUND` |
+| FR-24 | `parseId` -> `400 INVALID_ID`; `requireStudent` -> `404 NOT_FOUND`. User-accepted (DR-22): empty ID segment (`/students//status`) -> `400 INVALID_ID`; `PATCH /students`, `/students/status`, `/students//` -> `405` (s12.3, DR-17) |
 | FR-25 | `validateStudent` default mode ignores `status`; repository `update` preserves it |
 | FR-26 | status carried by every in-memory record; all responses return full records |
 | FR-27 | no status-dependent logic; email index independent of status |
@@ -295,9 +301,9 @@ New tests (additive, no existing test removed or weakened):
 1. Empty or non-JSON `PATCH` body returns `400 INVALID_JSON`, not `422 status`. AC-22 allows "(or the body)"; confirm this reading is acceptable, or require `422` for `{}`-style only (current design: `{}` is `422`).
 2. Existence (404) is checked before status validation (422), mirroring PUT. A bad status on a missing student reports `404`.
 3. `validateStudent` gains an options flag rather than a separate POST validator. Alternative would duplicate the picks; flag keeps NFR-3 and the unchanged default shape that `PUT` and the existing validation tests rely on.
-4. Load-time normalization means the first save after upgrade rewrites the whole file with `status`; a rollback to the old code afterward still starts (old loader ignores unknown fields) but drops `status` on its next save.
+4. Load-time normalization means the first save after upgrade rewrites the whole file with `status`; a rollback to the old code afterward still starts (old loader ignores unknown fields), but the old loader builds records without `status`, so statuses are dropped in memory when old code loads the file and are lost on disk at its next save. Back up `data/students.json` before rolling back. No migration or version field (DR-20).
 5. Same-status `PATCH` still writes the file; the cost is one small write and a uniform path. A no-op skip would be a second code path.
 6. Toggle sends an explicit target computed from a possibly stale view; the server result is authoritative and the list is reloaded, but a concurrent change from another tab may make the success message ("now X") differ from what the admin saw before.
-7. `/students//status` returns `400 INVALID_ID` for `PATCH` (empty ID) but `/students//` stays the collection route (unchanged); confirm this asymmetry is intended (FR-24 "missing ID").
+7. `/students//status` returns `400 INVALID_ID` for `PATCH` (empty ID) but `/students//` stays the collection route (unchanged); `PATCH /students/status`, `PATCH /students` and `PATCH /students//` are `405` (s12.3, DR-17). Accepted by the user; flag for verification (FR-24 "missing ID").
 8. No `Allow` header is sent on the new `405`s (optional per DR-15).
 9. Direct callers of `repository.create` without `status` get `Active`; the service always passes a validated value.
