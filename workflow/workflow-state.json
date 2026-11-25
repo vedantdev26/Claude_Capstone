@@ -323,7 +323,7 @@
           "name": "code-review",
           "agent": "code-review-agent",
           "artifact": "docs/code-review-student-status.md",
-          "status": "pending"
+          "status": "awaiting_approval"
         },
         "7": {
           "name": "verification",
@@ -465,7 +465,11 @@
         "DR-19: tests that loader and service.create pass acceptStatus (Inactive must not reset to Active)",
         "DR-21: toggle success message uses server response",
         "DR-23: drop busy-guard in-flight and duplicate textContent/CSP checks from browser-check.js"
-      ]
+      ],
+      "codeReview": {
+        "status": "approve (CR-1, CR-2 fixed and re-reviewed)",
+        "report": "docs/code-review-student-status.md"
+      }
     }
   ]
 }

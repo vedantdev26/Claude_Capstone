@@ -127,6 +127,6 @@ Status errors (`PATCH /students/{id}/status`, checked in this order):
 ```json
 {"error":{"code":"VALIDATION_ERROR","message":"status: must be \"Active\" or \"Inactive\"","fields":[{"field":"status","message":"must be \"Active\" or \"Inactive\""}]}}
 ```
-- 405 `METHOD_NOT_ALLOWED` for any other method on the status path (`GET`, `POST`, `PUT`, `DELETE`) and for `PATCH` on any other `/students` path.
+- 405 `METHOD_NOT_ALLOWED` for any other method on the status path (`GET`, `POST`, `PUT`, `DELETE`) and for `PATCH` on `/students`, `/students/`, `/students/{id}` and `/students/status`; other unknown, deeper or wrong-case paths (for example `/students/1/x`, `/students/1/Status`) are 404 `ROUTE_NOT_FOUND`.
 
 Other codes: `INVALID_JSON` (400), `ROUTE_NOT_FOUND` (404), `METHOD_NOT_ALLOWED` (405), `UNSUPPORTED_MEDIA_TYPE` (415), `PAYLOAD_TOO_LARGE` (413), `INTERNAL_ERROR` (500).

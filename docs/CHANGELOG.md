@@ -6,12 +6,12 @@
 - Student `status` field: `Active` or `Inactive` (case-sensitive), default `Active`, optional on `POST`.
 - `PATCH /students/{id}/status` with body `{"status": ...}`; errors 400 `INVALID_ID`/`INVALID_JSON`, 415, 413, 404, 422 and 405 for other methods on the path.
 - Dashboard: Active/Inactive badge per row and a Mark Active / Mark Inactive toggle with success and error messages.
-- 82 new automated tests (220 total with the 138 existing) across validation, repository, service, API and dashboard; 12 new `npm run test:browser` checks (47 total).
+- 82 new automated tests (220 total with the 138 existing) across validation, repository, service, API and dashboard; 13 new `npm run test:browser` checks (48 total).
 
 ### Changed
 - Every student response (exact-shape) now includes `status`; `PUT` preserves the stored status and ignores a `status` in its body.
 - Records saved without `status` read as `Active`; the first save after upgrade rewrites the data file with `status` (back up `data/students.json` before rolling back to pre-status code).
-- `PATCH` requires `Content-Type: application/json`; `PATCH` on other `/students` paths returns 405.
+- `PATCH` requires `Content-Type: application/json`; `PATCH` on `/students`, `/students/`, `/students/{id}` and `/students/status` returns 405; other unknown paths (for example `/students/1/x`) are 404 `ROUTE_NOT_FOUND`.
 
 ## [Unreleased] - Frontend (2026-11-25)
 

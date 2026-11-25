@@ -242,6 +242,16 @@ async function main() {
     await toggle(1);
     await messageIs('Lee Renamed is now Active.');
     check('status: the previous error banner is replaced when a toggle starts', (await ev('T.$("message").className')) === 'alert success' && !/not found/.test(await ev('T.$("message").textContent')));
+    await ev(`window.__realFetch = window.fetch; window.__patchCalls = 0;
+      window.fetch = (url, opts) => (opts && opts.method === 'PATCH'
+        ? (window.__patchCalls++, Promise.resolve(new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong on the server.' } }), { status: 500, headers: { 'Content-Type': 'application/json' } })))
+        : window.__realFetch(url, opts)); true`);
+    await toggle(1);
+    const failShown = await ev('T.waitFor(() => !T.$("message").hidden && T.$("message").className === "alert error")');
+    await ev('window.fetch = window.__realFetch; true');
+    check('status: a failed toggle (HTTP 500) shows a readable alert and leaves the row unchanged',
+      failShown && (await ev('window.__patchCalls')) === 1 && (await ev('T.$("message").textContent')) === 'Something went wrong on the server.'
+      && (await ev('T.$("message").getAttribute("role")')) === 'alert' && (await badge(1)) === 'Active' && (await toggleLabel(1)) === 'Mark Inactive' && (await ev('T.rows().length')) === 1);
 
     // 11. Screenshots + responsive
     if (OUT) fs.writeFileSync(path.join(OUT, 'desktop.png'), Buffer.from((await send('Page.captureScreenshot', {})).result.data, 'base64'));
