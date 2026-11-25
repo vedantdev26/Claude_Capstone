@@ -17,6 +17,8 @@ Based on `docs/requirements.md` (approved). Repo is empty (no existing code or s
 | Validator | `src/validation.js` | Normalize and validate student input (one function used by add and update, NFR-3), returning a fresh object built from exactly `name`, `email`, `course`; validate ID format |
 | Student service | `src/studentService.js` | Business rules: create, list, get, update, delete; duplicate-email check; throws typed errors |
 | Repository | `src/studentRepository.js` | `Map` storage of records and email index, ID counter; JSON-file load/validate/save; email lookup (lowercased); accepts an injectable writer (default: temp-file + rename) so tests can force save failures |
+| Static files | `src/staticFiles.js` | Load `public/index.html`, `styles.css`, `app.js` once at startup into a fixed URL allow-list (`/`, `/styles.css`, `/app.js`); serve `GET`/`HEAD` with `Content-Type`, `Cache-Control: no-cache`, `X-Content-Type-Options: nosniff` and a CSP; other methods -> 405. Request paths are never joined to a directory |
+| Frontend | `public/index.html`, `public/styles.css`, `public/app.js` | Vanilla HTML/CSS/JS dashboard (s11) |
 | Errors | `src/errors.js` | Typed errors (`ValidationError`, `InvalidIdError`, `NotFoundError`, `ConflictError`, ...) carrying code and HTTP status |
 
 Dependency direction: routes -> service -> repository; routes and service use validator and errors.
@@ -41,7 +43,7 @@ Load rule (at startup):
 - Records and the email index are held in `Map`s (never plain-object keyed by user data).
 
 ## 4. API contract
-Base path `/students`, JSON only. Student JSON: `{ "id", "name", "email", "course" }`. `POST`/`PUT` must send `Content-Type: application/json` (parameters such as `charset` allowed), otherwise `415`. No CORS headers are sent, so cross-origin browser calls fail preflight.
+Base path `/students`, JSON only (the dashboard assets at `/`, `/styles.css`, `/app.js` are the only non-JSON responses; see s11). Student JSON: `{ "id", "name", "email", "course" }`. `POST`/`PUT` must send `Content-Type: application/json` (parameters such as `charset` allowed), otherwise `415`. No CORS headers are sent, so cross-origin browser calls fail preflight.
 
 **Routing rule (single, applied first).** Strip the query string (ignored), then match the path against `^/students(?:/([^/]*))?/?$`.
 - No ID segment, or an empty one (`/students`, `/students/`): collection. `GET` = list, `POST` = add; `PUT`/`DELETE` = `400 INVALID_ID` (AC-10); other methods = `405`.
@@ -128,7 +130,9 @@ Delete: validate ID -> find (404) -> build state without record -> save -> swap 
 src/    server.js routes.js validation.js studentService.js studentRepository.js errors.js
 tests/  validation.test.js     (unit: required/blank/format/length, ID format, email cases, __proto__/constructor keys)
         studentService.test.js (service + in-memory repository: CRUD, duplicates, ID not reused)
+        frontend.test.js       (static serving, HTML/JS contract, client API + search against a real server)
         api.test.js            (HTTP: createServer on port 0, host 127.0.0.1, temp data file; status codes + error format)
+public/ index.html styles.css app.js   (frontend, served by the Node app)
 data/   students.json          (created at runtime; must be git-ignored)
 package.json                   ("start": "node src/server.js", "test": "node --test tests/")
 ```
@@ -188,3 +192,10 @@ Source: `docs/code-review.md` (user-approved 2026-11-25).
 - F-3 (accepted deviation): the email is trimmed before the regex runs, per the s3 data model ("trimmed"), so `a@b.c\n` is accepted as `a@b.c`. Rationale: consistent with name/course handling and safe (stored value is clean). The s7 test list was corrected to cases that remain rejected.
 - F-4 (accepted deviation): `createServer` takes `{filePath, writer, log, logError}` instead of `{filePath, host, port}`. Rationale: injectable writer and loggers make failure and log-hygiene tests possible; `host`/`port` are bootstrap concerns read from the environment under `require.main === module`. s2 and s7 updated.
 - F-1 and F-2 fixed in code: a client abort mid-body is dropped silently (no 500, no error log); an invalid `PORT` or a listen error exits 1 with `Startup failed: <message>`.
+
+## 11. Amendment 2: frontend (user-approved 2026-11-25; requirements FR-12..FR-18, AC-12..AC-17)
+- **Serving:** the same Node app serves the dashboard, so it is same-origin and still sends no CORS headers (DR-10 unchanged). `routes.js` checks the allow-list in `staticFiles.js` before the `/students` routing rule. Only `/`, `/styles.css` and `/app.js` match; `/index.html`, traversal attempts and every other path keep the JSON `ROUTE_NOT_FOUND`. `/students` behavior, validation, persistence and the error table are unchanged. Only the `/` route changes: it was `ROUTE_NOT_FOUND`, it is now the dashboard (the one existing test that asserted the old behavior was updated).
+- **Client:** vanilla JS, no dependencies or build step. `createApi(fetch, base)` wraps the REST calls and turns error bodies into an `ApiError` (`status`, `code`, `fields`); `filterStudents` does client-side search; `initDashboard` wires the DOM. The first two are exported under Node (`module.exports`) so tests run the real client code against a real server.
+- **Behavior:** form has `novalidate` so the API stays the single source of validation (NFR-3); 422 `fields` render under the matching inputs; 409 renders on the email field; a 404 on edit/delete reloads the list. Delete uses a native `<dialog>` and only calls the API when the returned value is `confirm`. The list is reloaded from the server after every change.
+- **Security:** all student data is rendered with `textContent` (never HTML); no inline script, style or handlers so the CSP `default-src self; frame-ancestors none` holds; no external resources.
+- **Testing:** `tests/frontend.test.js` plus a real-browser check (headless Chrome over the DevTools protocol) run during verification; browser flows that cannot be driven are reported as unverified.
