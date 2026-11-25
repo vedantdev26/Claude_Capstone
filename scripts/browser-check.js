@@ -81,9 +81,13 @@ async function main() {
       for (let i = 0; i < 100; i++) { try { if (await ev('document.readyState') === 'complete') break; } catch { /* navigating */ } await delay(50); }
       await ev(helpers);
     };
+    // The app ignores clicks while a save/delete is in flight (busy guard), so wait for idle before acting.
+    const idle = () => ev('T.waitFor(() => !T.$("submit-button").disabled)');
+    const act = async (code) => { await idle(); await ev(code); };
     const add = async (n, e, c) => {
-      await ev(`T.fill(${JSON.stringify(n)}, ${JSON.stringify(e)}, ${JSON.stringify(c)}); T.$('submit-button').click(); true`);
+      await act(`T.fill(${JSON.stringify(n)}, ${JSON.stringify(e)}, ${JSON.stringify(c)}); T.$('submit-button').click(); true`);
       await ev('T.waitFor(() => !T.$("message").hidden)');
+      await idle();
     };
 
     // 1. Load
@@ -95,13 +99,13 @@ async function main() {
     check('stylesheet applied (header is coloured)', (await ev('getComputedStyle(document.querySelector(".app-header")).backgroundColor')) === 'rgb(59, 79, 216)');
 
     // 2. Validation errors
-    await ev('T.$("submit-button").click(); true');
+    await act('T.$("submit-button").click(); true');
     await ev('T.waitFor(() => !T.$("message").hidden)');
     const errs = await ev('["name","email","course"].map((f) => T.visible("error-" + f) ? T.$("error-" + f).textContent : "")');
     check('empty submit shows a field error under each field and focuses the first', errs.every((e) => e.length > 0) && (await ev('document.activeElement.id')) === 'name', JSON.stringify(errs));
     check('error alert shown, table still empty', (await ev('T.$("message").className')) === 'alert error' && (await ev('T.rows().length')) === 0);
     check('invalid inputs are flagged aria-invalid', await ev('T.$("name").getAttribute("aria-invalid") === "true"'));
-    await ev('T.fill("Bob", "abc", "Art"); T.$("submit-button").click(); true');
+    await act('T.fill("Bob", "abc", "Art"); T.$("submit-button").click(); true');
     await ev('T.waitFor(() => T.visible("error-email"))');
     check('malformed email: error appears only on the email field', (await ev('T.visible("error-email") && !T.visible("error-name") && !T.visible("error-course")')) && /email/i.test(await ev('T.$("error-email").textContent')));
 
@@ -132,28 +136,28 @@ async function main() {
     check('clearing search restores all rows', (await search('')).length === 3);
 
     // 6. Edit
-    await ev('document.querySelector("#students-body tr[data-id=\\"1\\"] button[data-action=\\"edit\\"]").click(); true');
+    await act('document.querySelector("#students-body tr[data-id=\\"1\\"] button[data-action=\\"edit\\"]").click(); true');
     check('edit: form is pre-filled and switches to edit mode', (await ev('T.$("name").value')) === 'Ada Lovelace' && (await ev('T.$("form-title").textContent')) === 'Edit Student #1' && (await ev('T.$("submit-button").textContent')) === 'Save Changes' && (await ev('T.visible("cancel-edit")')));
-    await ev('T.$("course").value = "Computing"; T.$("submit-button").click(); true');
+    await act('T.$("course").value = "Computing"; T.$("submit-button").click(); true');
     await ev('T.waitFor(() => !T.$("message").hidden && T.$("message").textContent === "Student updated.")');
     await ev('T.waitFor(() => T.rows()[0] && T.rows()[0][3] === "Computing")');
     check('edit: saved, same id, success message, form back to add mode', JSON.stringify((await ev('T.rows()'))[0]) === '["1","Ada Lovelace","ada@example.com","Computing"]' && (await ev('T.$("form-title").textContent')) === 'Add Student');
-    await ev('document.querySelector("#students-body tr[data-id=\\"2\\"] button[data-action=\\"edit\\"]").click(); T.$("name").value = "CHANGED"; T.$("cancel-edit").click(); true');
+    await act('document.querySelector("#students-body tr[data-id=\\"2\\"] button[data-action=\\"edit\\"]").click(); T.$("name").value = "CHANGED"; T.$("cancel-edit").click(); true');
     check('edit: cancel discards changes', (await ev('T.$("name").value')) === '' && JSON.stringify((await ev('T.rows()'))[1]) === '["2","Bob Stone","bob@school.org","Art"]');
-    await ev('document.querySelector("#students-body tr[data-id=\\"1\\"] button[data-action=\\"edit\\"]").click(); T.$("email").value = "bob@school.org"; T.$("submit-button").click(); true');
+    await act('document.querySelector("#students-body tr[data-id=\\"1\\"] button[data-action=\\"edit\\"]").click(); T.$("email").value = "bob@school.org"; T.$("submit-button").click(); true');
     await ev('T.waitFor(() => T.visible("error-email"))');
     check('edit: duplicate email is rejected and data unchanged', /already in use/i.test(await ev('T.$("error-email").textContent')) && JSON.stringify((await ev('T.rows()'))[0]) === '["1","Ada Lovelace","ada@example.com","Computing"]');
-    await ev('T.$("cancel-edit").click(); true');
+    await act('T.$("cancel-edit").click(); true');
 
     // 7. Delete
-    await ev('document.querySelector("#students-body tr[data-id=\\"3\\"] button[data-action=\\"delete\\"]").click(); true');
+    await act('document.querySelector("#students-body tr[data-id=\\"3\\"] button[data-action=\\"delete\\"]").click(); true');
     check('delete: confirmation dialog opens naming the student', (await ev('T.$("confirm-dialog").open')) && /Cara Mathis/.test(await ev('T.$("confirm-text").textContent')));
     check('delete: dialog is described by its text and Cancel is focused first', (await ev('T.$("confirm-dialog").getAttribute("aria-describedby")')) === 'confirm-text' && (await ev('document.activeElement.id')) === 'confirm-cancel');
     if (OUT) fs.writeFileSync(path.join(OUT, 'dialog.png'), Buffer.from((await send('Page.captureScreenshot', {})).result.data, 'base64'));
-    await ev('T.$("confirm-cancel").click(); true');
+    await act('T.$("confirm-cancel").click(); true');
     await delay(300);
     check('delete: cancel keeps the student', !(await ev('T.$("confirm-dialog").open')) && (await ev('T.rows().length')) === 3);
-    await ev('document.querySelector("#students-body tr[data-id=\\"3\\"] button[data-action=\\"delete\\"]").click(); T.$("confirm-delete").click(); true');
+    await act('document.querySelector("#students-body tr[data-id=\\"3\\"] button[data-action=\\"delete\\"]").click(); T.$("confirm-delete").click(); true');
     await ev('T.waitFor(() => T.rows().length === 2)');
     check('delete: confirm removes the student and shows a message', JSON.stringify((await ev('T.rows()')).map((r) => r[0])) === '["1","2"]' && /Deleted Cara Mathis/.test(await ev('T.$("message").textContent')) && (await ev('T.$("total-count").textContent')) === '2' && (await ev('T.waitFor(() => document.activeElement.id === "search")')));
 
