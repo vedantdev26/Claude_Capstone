@@ -274,7 +274,7 @@
       "userStory": "As an administrator, I want to mark a student as Active or Inactive so that I can manage student enrollment status.",
       "branch": "feature/student-status",
       "baseCommit": "bf91143",
-      "currentPhase": 2,
+      "currentPhase": 3,
       "approvedPlanAt": "2026-11-25T09:25:31.546Z",
       "approvedBy": "user",
       "decisions": [
@@ -295,7 +295,8 @@
           "name": "architecture",
           "agent": "architecture-agent",
           "artifact": "docs/architecture.md",
-          "status": "pending"
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:36:30.620Z"
         },
         "3": {
           "name": "design-review",
@@ -347,6 +348,13 @@
           "at": "2026-11-25T09:29:18.059Z",
           "by": "user",
           "note": "Approved with NFR-7/AC-29 reworded (exact-shape tests may add status:Active); PUT ignores status"
+        },
+        {
+          "phase": 2,
+          "name": "architecture",
+          "at": "2026-11-25T09:36:30.620Z",
+          "by": "user",
+          "note": "Defaults accepted: 400 INVALID_JSON for empty/non-JSON PATCH body; /students//status -> 400 INVALID_ID"
         }
       ]
     }
