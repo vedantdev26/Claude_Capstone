@@ -197,10 +197,10 @@ describe('Frontend: API client against the real server (FR-13..FR-18)', () => {
   test('add, list, edit and delete round trip (AC-13, AC-15, AC-16)', async () => {
     assert.deepEqual(await env.api.list(), []);
     const created = await env.api.create(ada);
-    assert.deepEqual(created, { id: 1, ...ada });
+    assert.deepEqual(created, { id: 1, ...ada, status: 'Active' });
     assert.deepEqual(await env.api.list(), [created]);
     const updated = await env.api.update(created.id, { ...ada, name: 'Ada King', course: 'Computing' });
-    assert.deepEqual(updated, { id: 1, name: 'Ada King', email: 'ada@example.com', course: 'Computing' });
+    assert.deepEqual(updated, { id: 1, name: 'Ada King', email: 'ada@example.com', course: 'Computing', status: 'Active' });
     assert.equal(await env.api.remove(created.id), null);
     assert.deepEqual(await env.api.list(), []);
   });

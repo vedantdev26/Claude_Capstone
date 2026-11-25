@@ -121,7 +121,7 @@ describe('API: happy path and routing', () => {
   test('add returns 201 with id and Location (AC-1)', async () => {
     const res = await jsonRequest(env.port, 'POST', '/students', ada);
     assert.equal(res.status, 201);
-    assert.deepEqual(res.json, { id: 1, ...ada });
+    assert.deepEqual(res.json, { id: 1, ...ada, status: 'Active' });
     assert.equal(res.headers.location, '/students/1');
     const second = await jsonRequest(env.port, 'POST', '/students', bob);
     assert.equal(second.json.id, 2);
@@ -129,20 +129,20 @@ describe('API: happy path and routing', () => {
 
   test('list returns all records ordered by id (AC-2)', async () => {
     const res = await send(env.port, {});
-    assert.deepEqual(res.json, [{ id: 1, ...ada }, { id: 2, ...bob }]);
+    assert.deepEqual(res.json, [{ id: 1, ...ada, status: 'Active' }, { id: 2, ...bob, status: 'Active' }]);
   });
 
   test('get by id (AC-3)', async () => {
     const res = await send(env.port, { path: '/students/2' });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.json, { id: 2, ...bob });
+    assert.deepEqual(res.json, { id: 2, ...bob, status: 'Active' });
   });
 
   test('GET /students/ equals the list, query string ignored, trailing slash on id', async () => {
     const list = await send(env.port, {});
     assert.deepEqual((await send(env.port, { path: '/students/' })).json, list.json);
     assert.deepEqual((await send(env.port, { path: '/students?x=1&y=2' })).json, list.json);
-    assert.deepEqual((await send(env.port, { path: '/students/1/?x=1' })).json, { id: 1, ...ada });
+    assert.deepEqual((await send(env.port, { path: '/students/1/?x=1' })).json, { id: 1, ...ada, status: 'Active' });
   });
 
   test('%31 is a valid id', async () => {
@@ -154,7 +154,7 @@ describe('API: happy path and routing', () => {
   test('update keeps id and ignores body id (AC-4)', async () => {
     const res = await jsonRequest(env.port, 'PUT', '/students/1', { ...ada, name: 'Ada L', id: 99 });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.json, { id: 1, ...ada, name: 'Ada L' });
+    assert.deepEqual(res.json, { id: 1, ...ada, name: 'Ada L', status: 'Active' });
     assert.equal((await send(env.port, { path: '/students/99' })).status, 404);
   });
 
@@ -234,7 +234,7 @@ describe('API: error rows, check order and NFR-2', () => {
     const res = await jsonRequest(env.port, 'PUT', '/students/1', { name: '', email: 'abc', course: 'x' });
     assertError(res, 422, 'VALIDATION_ERROR');
     assert.deepEqual(res.json.error.fields.map((f) => f.field), ['name', 'email']);
-    assert.deepEqual(await list(), [{ id: 1, ...ada }]);
+    assert.deepEqual(await list(), [{ id: 1, ...ada, status: 'Active' }]);
   });
 
   test('400 INVALID_JSON for bad JSON and non-object bodies', async () => {
@@ -352,13 +352,13 @@ describe('API: error rows, check order and NFR-2', () => {
     const body = '{"name":"Eve","email":"eve@example.com","course":"CS","__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}}}';
     const created = await jsonRequest(env.port, 'POST', '/students', body);
     assert.equal(created.status, 201);
-    assert.deepEqual(Object.keys(created.json), ['id', 'name', 'email', 'course']);
+    assert.deepEqual(Object.keys(created.json), ['id', 'name', 'email', 'course', 'status']);
     const updated = await jsonRequest(env.port, 'PUT', '/students/1', body);
     assert.equal(updated.status, 200);
-    assert.deepEqual(Object.keys(updated.json), ['id', 'name', 'email', 'course']);
+    assert.deepEqual(Object.keys(updated.json), ['id', 'name', 'email', 'course', 'status']);
     assert.equal({}.polluted, undefined);
     assert.equal(Object.hasOwn(Object.prototype, 'polluted'), false);
-    assert.deepEqual(await list(), [{ id: 1, name: 'Eve', email: 'eve@example.com', course: 'CS' }]);
+    assert.deepEqual(await list(), [{ id: 1, name: 'Eve', email: 'eve@example.com', course: 'CS', status: 'Active' }]);
   });
 
   test('every error response is JSON', async () => {
@@ -390,7 +390,7 @@ describe('API: failed save (AC-11)', () => {
     assertError(await send(env.port, { method: 'DELETE', path: '/students/1' }), 500, 'INTERNAL_ERROR');
 
     env.writerFails = false;
-    assert.deepEqual((await send(env.port, {})).json, [{ id: 1, ...ada }]);
+    assert.deepEqual((await send(env.port, {})).json, [{ id: 1, ...ada, status: 'Active' }]);
     assert.equal(fs.readFileSync(env.file, 'utf8'), before);
     const next = await jsonRequest(env.port, 'POST', '/students', bob);
     assert.equal(next.json.id, 2);
@@ -430,7 +430,7 @@ describe('API: data file', () => {
     await close(env.server);
     env.server = createServer({ filePath: env.file, log: () => {} });
     env.port = await listen(env.server);
-    assert.deepEqual((await send(env.port, {})).json, [{ id: 1, ...ada }]);
+    assert.deepEqual((await send(env.port, {})).json, [{ id: 1, ...ada, status: 'Active' }]);
   });
 
   test('invalid data file fails startup and stays untouched', () => {

@@ -316,7 +316,7 @@
           "name": "implementation",
           "agent": "implementation-agent",
           "artifact": "src/, public/, tests/",
-          "status": "pending"
+          "status": "in_progress"
         },
         "6": {
           "name": "code-review",
@@ -341,22 +341,22 @@
         {
           "id": "S-1",
           "title": "`src/validation.js`: status rules",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-2",
           "title": "Validation tests for status",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-3",
           "title": "`src/studentRepository.js`: status support, plus minimal exact-shape test edits",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-4",
           "title": "Repository status tests (incl. DR-19 load/save)",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-5",

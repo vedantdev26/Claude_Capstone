@@ -19,13 +19,13 @@ describe('studentService', () => {
   test('create returns unique increasing ids (AC-1)', () => {
     const a = service.create(ada);
     const b = service.create(bob);
-    assert.deepEqual(a, { id: 1, ...ada });
+    assert.deepEqual(a, { id: 1, ...ada, status: 'Active' });
     assert.equal(b.id, 2);
   });
 
   test('create stores trimmed values', () => {
     const created = service.create({ name: ' Ada ', email: ' ada@example.com ', course: ' Math ' });
-    assert.deepEqual(created, { id: 1, ...ada });
+    assert.deepEqual(created, { id: 1, ...ada, status: 'Active' });
   });
 
   test('list returns empty then all records (AC-2)', () => {
@@ -37,13 +37,13 @@ describe('studentService', () => {
 
   test('get returns the record (AC-3)', () => {
     service.create(ada);
-    assert.deepEqual(service.get(1), { id: 1, ...ada });
+    assert.deepEqual(service.get(1), { id: 1, ...ada, status: 'Active' });
   });
 
   test('update changes fields and keeps id (AC-4)', () => {
     service.create(ada);
-    assert.deepEqual(service.update(1, { ...bob, id: 77 }), { id: 1, ...bob });
-    assert.deepEqual(service.get(1), { id: 1, ...bob });
+    assert.deepEqual(service.update(1, { ...bob, id: 77 }), { id: 1, ...bob, status: 'Active' });
+    assert.deepEqual(service.get(1), { id: 1, ...bob, status: 'Active' });
   });
 
   test('delete removes the record (AC-5)', () => {
@@ -69,7 +69,7 @@ describe('studentService', () => {
     service.create(ada);
     service.create(bob);
     assert.throws(() => service.update(2, { ...bob, email: 'ADA@example.com' }), ConflictError);
-    assert.deepEqual(service.get(2), { id: 2, ...bob });
+    assert.deepEqual(service.get(2), { id: 2, ...bob, status: 'Active' });
   });
 
   test('update keeping own email, even in another case, is allowed', () => {
@@ -105,7 +105,7 @@ describe('studentService', () => {
     service.create(ada);
     assert.throws(() => service.update(1, { ...bob, course: ' ' }), ValidationError);
     assert.throws(() => service.update(1, { ...bob, email: 'abc' }), ValidationError);
-    assert.deepEqual(service.get(1), { id: 1, ...ada });
+    assert.deepEqual(service.get(1), { id: 1, ...ada, status: 'Active' });
   });
 
   test('add and update apply the same validation (NFR-3)', () => {
@@ -142,7 +142,7 @@ describe('studentService', () => {
     assert.throws(() => svc.create(bob), /disk full/);
     assert.throws(() => svc.update(1, bob), /disk full/);
     assert.throws(() => svc.remove(1), /disk full/);
-    assert.deepEqual(svc.list(), [{ id: 1, ...ada }]);
+    assert.deepEqual(svc.list(), [{ id: 1, ...ada, status: 'Active' }]);
     fail = false;
     assert.equal(svc.create(bob).id, 2);
   });
