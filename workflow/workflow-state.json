@@ -337,7 +337,7 @@
           "name": "pull-request",
           "agent": "pr-agent",
           "artifact": "pull request",
-          "status": "pending"
+          "status": "awaiting_approval"
         }
       },
       "tasks": [
@@ -493,7 +493,8 @@
         "browserCheck": "48/48",
         "liveHttp": "66 requests, failed requests left data byte-identical",
         "report": "docs/verification-report-student-status.md"
-      }
+      },
+      "prDescription": "docs/pr-description-student-status.md"
     }
   ]
 }
