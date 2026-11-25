@@ -1,22 +1,229 @@
 {
   "project": "student-management-system",
   "userStory": "As an administrator, I want to add, view, update, and delete student records so that I can manage student information efficiently.",
-  "currentPhase": 1,
+  "currentPhase": 8,
   "phases": {
-    "1": { "name": "requirements",   "agent": "requirements-agent",   "artifact": "docs/requirements.md",        "status": "pending", "approvedAt": null },
-    "2": { "name": "architecture",   "agent": "architecture-agent",   "artifact": "docs/architecture.md",        "status": "pending", "approvedAt": null },
-    "3": { "name": "design-review",  "agent": "design-review-agent",  "artifact": "docs/design-review.md",       "status": "pending", "approvedAt": null },
-    "4": { "name": "planning",       "agent": "planning-agent",       "artifact": "docs/impl-plan.md",           "status": "pending", "approvedAt": null },
-    "5": { "name": "implementation", "agent": "implementation-agent", "artifact": "src/, tests/",                "status": "pending", "approvedAt": null },
-    "6": { "name": "code-review",    "agent": "code-review-agent",    "artifact": "docs/code-review.md",         "status": "pending", "approvedAt": null },
-    "7": { "name": "verification",   "agent": "verification-agent",   "artifact": "docs/verification-report.md", "status": "pending", "approvedAt": null },
-    "8": { "name": "pull-request",   "agent": "pr-agent",             "artifact": "pull request",                "status": "pending", "approvedAt": null }
+    "1": {
+      "name": "requirements",
+      "agent": "requirements-agent",
+      "artifact": "docs/requirements.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:04:17+05:30"
+    },
+    "2": {
+      "name": "architecture",
+      "agent": "architecture-agent",
+      "artifact": "docs/architecture.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:07:42+05:30"
+    },
+    "3": {
+      "name": "design-review",
+      "agent": "design-review-agent",
+      "artifact": "docs/design-review.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:15:56+05:30"
+    },
+    "4": {
+      "name": "planning",
+      "agent": "planning-agent",
+      "artifact": "docs/impl-plan.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:19:26+05:30"
+    },
+    "5": {
+      "name": "implementation",
+      "agent": "implementation-agent",
+      "artifact": "src/, tests/",
+      "status": "approved",
+      "approvedAt": "2026-11-25T07:10:31.616Z"
+    },
+    "6": {
+      "name": "code-review",
+      "agent": "code-review-agent",
+      "artifact": "docs/code-review.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T07:14:10.892Z"
+    },
+    "7": {
+      "name": "verification",
+      "agent": "verification-agent",
+      "artifact": "docs/verification-report.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T07:17:59.700Z"
+    },
+    "8": {
+      "name": "pull-request",
+      "agent": "pr-agent",
+      "artifact": "pull request",
+      "status": "awaiting_approval",
+      "approvedAt": null
+    }
   },
-  "approvals": [],
+  "approvals": [
+    {
+      "phase": 1,
+      "name": "requirements",
+      "at": "2026-11-25T12:04:17+05:30",
+      "by": "user"
+    },
+    {
+      "phase": 2,
+      "name": "architecture",
+      "at": "2026-11-25T12:07:42+05:30",
+      "by": "user"
+    },
+    {
+      "phase": 3,
+      "name": "design-review",
+      "at": "2026-11-25T12:15:56+05:30",
+      "by": "user",
+      "note": "Option A: DR-1..DR-14 applied to architecture.md; DR-15 partial"
+    },
+    {
+      "phase": 4,
+      "name": "planning",
+      "at": "2026-11-25T12:19:26+05:30",
+      "by": "user"
+    },
+    {
+      "phase": 5,
+      "name": "implementation",
+      "at": "2026-11-25T07:10:31.616Z",
+      "by": "user"
+    },
+    {
+      "phase": 6,
+      "name": "code-review",
+      "at": "2026-11-25T07:14:10.892Z",
+      "by": "user",
+      "note": "Approved as is; F-1..F-7 not fixed, F-3/F-4 doc drift left open"
+    },
+    {
+      "phase": 7,
+      "name": "verification",
+      "at": "2026-11-25T07:17:59.700Z",
+      "by": "user"
+    }
+  ],
   "openQuestions": [],
-  "blockers": [],
-  "tasks": [],
-  "verification": { "status": "not_run", "lastRun": null, "summary": null },
-  "git": { "branch": "feature/student-management", "remote": null },
-  "pr": { "status": "not_created", "url": null, "number": null }
+  "blockers": [
+    "No git remote configured and gh not authenticated: need repository URL and `gh auth login` to push, create PR and merge"
+  ],
+  "tasks": [
+    {
+      "id": "T-1",
+      "title": "Scaffold: `package.json`, folders, `.gitignore`",
+      "status": "done"
+    },
+    {
+      "id": "T-2",
+      "title": "`src/errors.js`: typed errors",
+      "status": "done"
+    },
+    {
+      "id": "T-3",
+      "title": "`src/validation.js`: student input validator",
+      "status": "done"
+    },
+    {
+      "id": "T-4",
+      "title": "`src/validation.js`: ID validator",
+      "status": "done"
+    },
+    {
+      "id": "T-5",
+      "title": "Unit tests: `tests/validation.test.js`",
+      "status": "done"
+    },
+    {
+      "id": "T-6",
+      "title": "`src/studentRepository.js`: in-memory store with injectable writer",
+      "status": "done"
+    },
+    {
+      "id": "T-7",
+      "title": "Repository: default atomic writer",
+      "status": "done"
+    },
+    {
+      "id": "T-8",
+      "title": "Repository: data-file load rules",
+      "status": "done"
+    },
+    {
+      "id": "T-9",
+      "title": "Repository tests: `tests/studentRepository.test.js`",
+      "status": "done"
+    },
+    {
+      "id": "T-10",
+      "title": "`src/studentService.js`: business rules",
+      "status": "done"
+    },
+    {
+      "id": "T-11",
+      "title": "Service tests: `tests/studentService.test.js`",
+      "status": "done"
+    },
+    {
+      "id": "T-12",
+      "title": "`src/routes.js`: routing rule and dispatch",
+      "status": "done"
+    },
+    {
+      "id": "T-13",
+      "title": "Routes: request body handling",
+      "status": "done"
+    },
+    {
+      "id": "T-14",
+      "title": "Routes: error mapper and logging",
+      "status": "done"
+    },
+    {
+      "id": "T-15",
+      "title": "`src/server.js`: `createServer` and bootstrap",
+      "status": "done"
+    },
+    {
+      "id": "T-16",
+      "title": "API tests: harness, happy path and routing",
+      "status": "done"
+    },
+    {
+      "id": "T-17",
+      "title": "API tests: error rows, check order and NFR-2",
+      "status": "done"
+    },
+    {
+      "id": "T-18",
+      "title": "API tests: failed save, data file, bind and log hygiene",
+      "status": "done"
+    },
+    {
+      "id": "T-19",
+      "title": "README",
+      "status": "done"
+    },
+    {
+      "id": "T-20",
+      "title": "Final check: full suite and clean tree",
+      "status": "done"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "lastRun": "2026-11-25T07:32:56.779Z",
+    "summary": "Re-verified after F-1/F-2 fixes: 113/113 tests pass; live checks for PORT, EADDRINUSE, client abort, 413, HOST=127.0.0.1; F-3/F-4 accepted deviations (architecture s10); F-5..F-7 open"
+  },
+  "git": {
+    "branch": "feature/student-management",
+    "remote": null
+  },
+  "pr": {
+    "status": "not_created",
+    "url": null,
+    "number": null
+  }
 }
