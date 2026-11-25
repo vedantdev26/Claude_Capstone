@@ -1,22 +1,88 @@
 {
   "project": "student-management-system",
   "userStory": "As an administrator, I want to add, view, update, and delete student records so that I can manage student information efficiently.",
-  "currentPhase": 1,
+  "currentPhase": 2,
   "phases": {
-    "1": { "name": "requirements",   "agent": "requirements-agent",   "artifact": "docs/requirements.md",        "status": "pending", "approvedAt": null },
-    "2": { "name": "architecture",   "agent": "architecture-agent",   "artifact": "docs/architecture.md",        "status": "pending", "approvedAt": null },
-    "3": { "name": "design-review",  "agent": "design-review-agent",  "artifact": "docs/design-review.md",       "status": "pending", "approvedAt": null },
-    "4": { "name": "planning",       "agent": "planning-agent",       "artifact": "docs/impl-plan.md",           "status": "pending", "approvedAt": null },
-    "5": { "name": "implementation", "agent": "implementation-agent", "artifact": "src/, tests/",                "status": "pending", "approvedAt": null },
-    "6": { "name": "code-review",    "agent": "code-review-agent",    "artifact": "docs/code-review.md",         "status": "pending", "approvedAt": null },
-    "7": { "name": "verification",   "agent": "verification-agent",   "artifact": "docs/verification-report.md", "status": "pending", "approvedAt": null },
-    "8": { "name": "pull-request",   "agent": "pr-agent",             "artifact": "pull request",                "status": "pending", "approvedAt": null }
+    "1": {
+      "name": "requirements",
+      "agent": "requirements-agent",
+      "artifact": "docs/requirements.md",
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:04:17+05:30"
+    },
+    "2": {
+      "name": "architecture",
+      "agent": "architecture-agent",
+      "artifact": "docs/architecture.md",
+      "status": "in_progress",
+      "approvedAt": null
+    },
+    "3": {
+      "name": "design-review",
+      "agent": "design-review-agent",
+      "artifact": "docs/design-review.md",
+      "status": "pending",
+      "approvedAt": null
+    },
+    "4": {
+      "name": "planning",
+      "agent": "planning-agent",
+      "artifact": "docs/impl-plan.md",
+      "status": "pending",
+      "approvedAt": null
+    },
+    "5": {
+      "name": "implementation",
+      "agent": "implementation-agent",
+      "artifact": "src/, tests/",
+      "status": "pending",
+      "approvedAt": null
+    },
+    "6": {
+      "name": "code-review",
+      "agent": "code-review-agent",
+      "artifact": "docs/code-review.md",
+      "status": "pending",
+      "approvedAt": null
+    },
+    "7": {
+      "name": "verification",
+      "agent": "verification-agent",
+      "artifact": "docs/verification-report.md",
+      "status": "pending",
+      "approvedAt": null
+    },
+    "8": {
+      "name": "pull-request",
+      "agent": "pr-agent",
+      "artifact": "pull request",
+      "status": "pending",
+      "approvedAt": null
+    }
   },
-  "approvals": [],
+  "approvals": [
+    {
+      "phase": 1,
+      "name": "requirements",
+      "at": "2026-11-25T12:04:17+05:30",
+      "by": "user"
+    }
+  ],
   "openQuestions": [],
   "blockers": [],
   "tasks": [],
-  "verification": { "status": "not_run", "lastRun": null, "summary": null },
-  "git": { "branch": "feature/student-management", "remote": null },
-  "pr": { "status": "not_created", "url": null, "number": null }
+  "verification": {
+    "status": "not_run",
+    "lastRun": null,
+    "summary": null
+  },
+  "git": {
+    "branch": "feature/student-management",
+    "remote": null
+  },
+  "pr": {
+    "status": "not_created",
+    "url": null,
+    "number": null
+  }
 }
