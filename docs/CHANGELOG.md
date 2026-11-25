@@ -5,7 +5,8 @@
 ### Added
 - Browser dashboard served by the Node app at `/`: add form, students table, client-side search by name/email/course, edit, delete with a native confirmation dialog, field-level validation errors and success/error messages, responsive layout. HTML, CSS and vanilla JavaScript only (`public/`), no dependencies.
 - `src/staticFiles.js`: serves only `/`, `/styles.css` and `/app.js` (GET/HEAD) from a fixed allow-list with nosniff and CSP headers.
-- `tests/frontend.test.js` (23 tests): static serving and path allow-list, HTML/JS contract, search filter, and the real client code against a real server.
+- `tests/frontend.test.js` (25 tests): static serving and path allow-list, HTML/JS contract, search filter, and the real client code against a real server.
+- `npm run test:browser` (`scripts/browser-check.js`): self-contained headless Chrome/Edge check of the dashboard (35 checks).
 - Requirements FR-12..FR-18 / AC-12..AC-17 and architecture s11.
 
 ### Changed

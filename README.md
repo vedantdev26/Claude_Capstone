@@ -27,6 +27,7 @@ If the data file exists but is invalid, the server refuses to start and does not
 ```sh
 npm test
 ```
+`npm test` needs nothing but Node. To also exercise the dashboard in a real browser, run `npm run test:browser` (needs Chrome, Chromium or Edge installed; set `CHROME_PATH` if it is not found; it uses its own port and a temporary data file).
 
 ## Dashboard
 Open `http://127.0.0.1:3000/`:
