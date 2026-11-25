@@ -13,13 +13,14 @@ The server listens on `http://127.0.0.1:3000` (loopback only) and prints the add
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PORT` | `3000` | Port to listen on |
+| `PORT` | `3000` | Port to listen on (integer 0-65535; an invalid value, or a port already in use, stops startup with an error) |
 | `HOST` | `127.0.0.1` | Bind address. Set `HOST=0.0.0.0` only if you accept unauthenticated access from the network |
 | `DATA_FILE` | `data/students.json` | Path of the JSON data file (created on first save) |
 
 ```sh
 PORT=8080 DATA_FILE=/tmp/students.json npm start
 ```
+On Windows PowerShell: `$env:PORT=8080; $env:DATA_FILE="$env:TEMP\students.json"; npm start`.
 If the data file exists but is invalid, the server refuses to start and does not modify the file. `data/` is git-ignored.
 
 ## Test

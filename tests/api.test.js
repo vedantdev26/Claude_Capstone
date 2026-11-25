@@ -4,6 +4,7 @@ const { test, describe, before, after, beforeEach, afterEach } = require('node:t
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
+const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
@@ -441,6 +442,28 @@ describe('API: data file', () => {
   });
 });
 
+describe('API: client abort mid-body (F-1)', () => {
+  const env = makeEnv();
+  before(() => start(env));
+  after(() => stop(env));
+
+  test('is not logged as an error, not answered, and does not affect the server', async () => {
+    const socket = net.connect(env.port, '127.0.0.1');
+    await new Promise((resolve) => socket.once('connect', resolve));
+    socket.write(
+      'POST /students HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{"name":"Ab',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    socket.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.deepEqual(env.errors, []);
+    assert.deepEqual(env.logs, []);
+    const list = await send(env.port, {});
+    assert.equal(list.status, 200);
+    assert.deepEqual(list.json, []);
+  });
+});
+
 describe('API: bootstrap and log hygiene', () => {
   function run(envVars) {
     const child = spawn(process.execPath, [SERVER_JS], {
@@ -499,6 +522,31 @@ describe('API: bootstrap and log hygiene', () => {
       assert.ok(!output.stderr.includes('Sensitive Name'));
       assert.equal(fs.readFileSync(file, 'utf8'), content);
     } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('invalid PORT exits non-zero with a clean message and no stack trace (F-2)', async () => {
+    for (const bad of ['abc', '70000', '-1', '3000x']) {
+      const { child, output } = run({ PORT: bad, DATA_FILE: path.join(os.tmpdir(), 'unused-never-created.json') });
+      const code = await new Promise((resolve) => child.once('exit', resolve));
+      assert.equal(code, 1, `PORT=${bad}`);
+      assert.match(output.stderr, /^Startup failed: PORT must be an integer from 0 to 65535\r?\n$/);
+    }
+  });
+
+  test('listen failure (EADDRINUSE) exits non-zero with a clean message (F-2)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'api-boot-'));
+    const blocker = net.createServer();
+    await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    try {
+      const { child, output } = run({ PORT: String(blocker.address().port), DATA_FILE: path.join(dir, 'students.json') });
+      const code = await new Promise((resolve) => child.once('exit', resolve));
+      assert.equal(code, 1);
+      assert.match(output.stderr, /^Startup failed: .*EADDRINUSE/);
+      assert.ok(!/\n\s+at /.test(output.stderr), 'no stack trace');
+    } finally {
+      await new Promise((resolve) => blocker.close(resolve));
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });

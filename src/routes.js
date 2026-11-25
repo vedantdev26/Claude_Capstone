@@ -14,6 +14,8 @@ const { parseId } = require('./validation');
 const ROUTE_RE = /^\/students(?:\/([^/]*))?\/?$/;
 const MAX_BODY_BYTES = 10 * 1024;
 
+class ClientAbortedError extends Error {}
+
 function sendJson(res, status, payload, headers = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
@@ -50,7 +52,7 @@ function readBody(req) {
     req.on('data', onData);
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
-    req.on('close', () => reject(new Error('Request closed before body was read')));
+    req.on('close', () => reject(new ClientAbortedError()));
   });
 }
 
@@ -108,6 +110,10 @@ function createHandler(service, { log = console.log, logError = console.error } 
     try {
       await dispatch(req, res);
     } catch (err) {
+      if (err instanceof ClientAbortedError || (req.aborted && err?.code === 'ECONNRESET')) {
+        errorCode = 'CLIENT_ABORTED';
+        return;
+      }
       if (err instanceof AppError) {
         errorCode = err.code;
         const error = { code: err.code, message: err.message };
