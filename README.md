@@ -36,11 +36,12 @@ Open `http://127.0.0.1:3000/`:
 - **Search**: type in the search box to filter by name, email or course (case-insensitive, done in the browser).
 - **Edit**: click Edit to load a student into the form, change it, then Save Changes (or Cancel).
 - **Delete**: click Delete and confirm in the dialog; Cancel leaves the student untouched.
+- **Status**: each row shows an Active or Inactive badge. Click Mark Inactive / Mark Active to flip it; a message confirms the change. There is no status filter, and search does not look at status.
 
 The layout is responsive: on narrow screens the table becomes stacked cards. The files live in `public/` and are served by the same Node app (only `/`, `/styles.css` and `/app.js`); the dashboard calls the REST API below with `fetch()`.
 
 ## API
-A student is `{ "id", "name", "email", "course" }`. `name` and `course` are 1-100 characters; `email` must be a valid address (max 254 characters) and unique, ignoring letter case. `id` is assigned by the server. `POST` and `PUT` need `Content-Type: application/json`; request bodies are limited to 10 KB.
+A student is `{ "id", "name", "email", "course", "status" }`. `name` and `course` are 1-100 characters; `email` must be a valid address (max 254 characters) and unique, ignoring letter case. `id` is assigned by the server. `status` is exactly `Active` or `Inactive` (case-sensitive, not trimmed) and defaults to `Active`; `POST` accepts it as an optional field. Status has no effect on list, update, delete or email uniqueness. Records saved before this field existed read as `Active`, and the data file gets `status` on its next save (back up `data/students.json` before rolling back to pre-status code). `POST`, `PUT` and `PATCH` need `Content-Type: application/json`; request bodies are limited to 10 KB.
 
 Add (201, returns the student and a `Location` header):
 ```sh
@@ -59,11 +60,21 @@ Get one (200):
 curl http://127.0.0.1:3000/students/1
 ```
 
-Update (200, full replacement; the id never changes):
+Update (200, full replacement; the id never changes, and `status` is preserved: a `status` in the `PUT` body is ignored):
 ```sh
 curl -X PUT http://127.0.0.1:3000/students/1 \
   -H "Content-Type: application/json" \
   -d '{"name":"Ada King","email":"ada@example.com","course":"Computing"}'
+```
+
+Change status (200, returns the updated student; body is `{"status":"Active"}` or `{"status":"Inactive"}`):
+```sh
+curl -X PATCH http://127.0.0.1:3000/students/1/status \
+  -H "Content-Type: application/json" \
+  -d '{"status":"Inactive"}'
+```
+```json
+{"id":1,"name":"Ada King","email":"ada@example.com","course":"Computing","status":"Inactive"}
 ```
 
 Delete (204, no body):
@@ -109,5 +120,13 @@ curl -i http://127.0.0.1:3000/students/abc
 ```json
 {"error":{"code":"INVALID_ID","message":"Student ID must be a positive integer"}}
 ```
+
+Status errors (`PATCH /students/{id}/status`, checked in this order):
+- 400 `INVALID_ID` (bad id), 415 `UNSUPPORTED_MEDIA_TYPE` (not JSON), 413 `PAYLOAD_TOO_LARGE` (over 10 KB), 400 `INVALID_JSON` (body is not a JSON object), 404 `NOT_FOUND` (no such student).
+- 422 `VALIDATION_ERROR` for a missing or wrong `status` (for example `"inactive"`):
+```json
+{"error":{"code":"VALIDATION_ERROR","message":"status: must be \"Active\" or \"Inactive\"","fields":[{"field":"status","message":"must be \"Active\" or \"Inactive\""}]}}
+```
+- 405 `METHOD_NOT_ALLOWED` for any other method on the status path (`GET`, `POST`, `PUT`, `DELETE`) and for `PATCH` on `/students`, `/students/`, `/students/{id}` and `/students/status`; other unknown, deeper or wrong-case paths (for example `/students/1/x`, `/students/1/Status`) are 404 `ROUTE_NOT_FOUND`.
 
 Other codes: `INVALID_JSON` (400), `ROUTE_NOT_FOUND` (404), `METHOD_NOT_ALLOWED` (405), `UNSUPPORTED_MEDIA_TYPE` (415), `PAYLOAD_TOO_LARGE` (413), `INTERNAL_ERROR` (500).

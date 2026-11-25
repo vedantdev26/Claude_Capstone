@@ -12,7 +12,7 @@ const {
 const { parseId } = require('./validation');
 const { loadStaticAssets, sendAsset } = require('./staticFiles');
 
-const ROUTE_RE = /^\/students(?:\/([^/]*))?\/?$/;
+const ROUTE_RE = /^\/students(?:\/([^/]*)(?:\/(status))?)?\/?$/;
 const MAX_BODY_BYTES = 10 * 1024;
 
 class ClientAbortedError extends Error {}
@@ -82,6 +82,13 @@ function createHandler(service, { log = console.log, logError = console.error } 
     if (!match) throw new RouteNotFoundError();
     const segment = match[1];
     const method = req.method;
+
+    if (match[2]) {
+      if (method !== 'PATCH') throw new MethodNotAllowedError();
+      const id = parseId(segment);
+      requireJsonContentType(req);
+      return sendJson(res, 200, service.setStatus(id, await readJsonObject(req)));
+    }
 
     if (segment === undefined || segment === '') {
       if (method === 'GET') return sendJson(res, 200, service.list());

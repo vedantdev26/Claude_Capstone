@@ -156,6 +156,79 @@ describe('Frontend: HTML and JavaScript contract (NFR-6)', () => {
   });
 });
 
+describe('Frontend: status column and toggle contract (FR-28, FR-29, AC-27, AC-28)', () => {
+  const html = read('index.html').toString('utf8');
+  const js = read('app.js').toString('utf8');
+  const css = read('styles.css').toString('utf8');
+
+  test('index.html has the Status header between Course and Actions', () => {
+    const headers = [...html.matchAll(/<th [^>]*>(.*?)<\/th>/g)].map((m) => m[1].replace(/<[^>]+>/g, ''));
+    assert.deepEqual(headers, ['ID', 'Name', 'Email', 'Course', 'Status', 'Actions']);
+  });
+
+  test('styles.css defines the badge classes', () => {
+    for (const cls of ['.badge', '.badge-active', '.badge-inactive']) assert.ok(css.includes(`${cls} {`), cls);
+  });
+
+  test('app.js renders the badge from a fixed mapping and has the toggle action calling setStatus', () => {
+    assert.match(js, /student\.status === 'Inactive'/);
+    assert.match(js, /badge-active/);
+    assert.match(js, /badge-inactive/);
+    assert.match(js, /data-action|dataset\.action/);
+    assert.match(js, /'toggle'/);
+    assert.match(js, /api\.setStatus\(/);
+    assert.match(js, /guarded\(\(\) => toggleStatus\(student\)\)/);
+  });
+
+  test('the module export list is unchanged', () => {
+    assert.deepEqual(Object.keys(require('../public/app.js')).sort(), ['ApiError', 'createApi', 'filterStudents']);
+  });
+});
+
+describe('Frontend: createApi.setStatus against the real server (FR-23, FR-29)', () => {
+  const env = makeEnv();
+  before(async () => {
+    await start(env);
+    env.api = createApi(fetch, `${env.base}/students`);
+  });
+  after(() => stop(env));
+
+  const ada = { name: 'Ada', email: 'ada@example.com', course: 'Math' };
+
+  test('sets the status both ways and returns the updated student', async () => {
+    const created = await env.api.create(ada);
+    assert.deepEqual(await env.api.setStatus(created.id, 'Inactive'), { id: created.id, ...ada, status: 'Inactive' });
+    assert.deepEqual(await env.api.list(), [{ id: created.id, ...ada, status: 'Inactive' }]);
+    assert.deepEqual(await env.api.setStatus(created.id, 'Active'), created);
+  });
+
+  test('an unknown id is a NOT_FOUND ApiError', async () => {
+    await assert.rejects(env.api.setStatus(999, 'Inactive'), (err) => err instanceof ApiError && err.status === 404 && err.code === 'NOT_FOUND');
+  });
+
+  test('a bad status is a VALIDATION_ERROR ApiError naming status', async () => {
+    const [student] = await env.api.list();
+    await assert.rejects(env.api.setStatus(student.id, 'active'), (err) => {
+      assert.ok(err instanceof ApiError);
+      assert.equal(err.status, 422);
+      assert.equal(err.code, 'VALIDATION_ERROR');
+      assert.deepEqual(err.fields.map((f) => f.field), ['status']);
+      return true;
+    });
+    assert.equal((await env.api.list())[0].status, 'Active');
+  });
+
+  test('requests PATCH /students/{id}/status with only the status in the body', async () => {
+    const calls = [];
+    const api = createApi(async (url, options) => { calls.push({ url, options }); return new Response('{}', { status: 200 }); }, '/students');
+    await api.setStatus(7, 'Inactive');
+    assert.equal(calls[0].url, '/students/7/status');
+    assert.equal(calls[0].options.method, 'PATCH');
+    assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { status: 'Inactive' });
+  });
+});
+
 describe('Frontend: search filter (FR-17, AC-17)', () => {
   const students = [
     { id: 1, name: 'Ada Lovelace', email: 'ada@example.com', course: 'Mathematics' },
@@ -197,10 +270,10 @@ describe('Frontend: API client against the real server (FR-13..FR-18)', () => {
   test('add, list, edit and delete round trip (AC-13, AC-15, AC-16)', async () => {
     assert.deepEqual(await env.api.list(), []);
     const created = await env.api.create(ada);
-    assert.deepEqual(created, { id: 1, ...ada });
+    assert.deepEqual(created, { id: 1, ...ada, status: 'Active' });
     assert.deepEqual(await env.api.list(), [created]);
     const updated = await env.api.update(created.id, { ...ada, name: 'Ada King', course: 'Computing' });
-    assert.deepEqual(updated, { id: 1, name: 'Ada King', email: 'ada@example.com', course: 'Computing' });
+    assert.deepEqual(updated, { id: 1, name: 'Ada King', email: 'ada@example.com', course: 'Computing', status: 'Active' });
     assert.equal(await env.api.remove(created.id), null);
     assert.deepEqual(await env.api.list(), []);
   });

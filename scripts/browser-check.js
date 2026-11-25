@@ -40,6 +40,8 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome-prof-'));
   const chrome = spawn(browser, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     `--user-data-dir=${profile}`, '--remote-debugging-port=0', 'about:blank'], { stdio: 'ignore' });
+  const legacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-check-legacy-'));
+  let legacyServer;
   try {
     let target;
     for (let i = 0; i < 150 && !target; i++) {
@@ -185,7 +187,73 @@ async function main() {
     check('API from the page origin still works (GET /students)', (await ev('fetch("/students").then((r) => r.status)')) === 200);
     check('unknown path is still JSON ROUTE_NOT_FOUND', (await ev('fetch("/other").then((r) => r.json()).then((j) => j.error.code)')) === 'ROUTE_NOT_FOUND');
 
-    // 10. Screenshots + responsive
+    // 10. Status (separate server seeded with a legacy record that has no status key)
+    const legacyFile = path.join(legacyDir, 'students.json');
+    const legacyBytes = JSON.stringify({ nextId: 2, students: [{ id: 1, name: 'Legacy Lee', email: 'lee@example.com', course: 'History' }] });
+    fs.writeFileSync(legacyFile, legacyBytes);
+    legacyServer = createServer({ filePath: legacyFile, log: () => {}, logError: () => {} });
+    await new Promise((resolve) => legacyServer.listen(0, '127.0.0.1', resolve));
+    const LEGACY_APP = `http://127.0.0.1:${legacyServer.address().port}/`;
+    const legacyApi = async (method, suffix, body) => fetch(`${LEGACY_APP}students${suffix}`, {
+      method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body && JSON.stringify(body),
+    });
+    const q = (sid, sub) => `document.querySelector(${JSON.stringify(`#students-body tr[data-id="${sid}"] ${sub}`)})`;
+    const badge = (sid) => ev(`${q(sid, '.badge')}?.textContent ?? null`);
+    const toggleLabel = (sid) => ev(`${q(sid, 'button[data-action="toggle"]')}?.textContent ?? null`);
+    const toggle = (sid) => act(`${q(sid, 'button[data-action="toggle"]')}.click(); true`);
+    const messageIs = (text) => ev(`T.waitFor(() => !T.$("message").hidden && T.$("message").textContent === ${JSON.stringify(text)})`);
+    const badgeBecomes = (sid, text) => ev(`T.waitFor(() => ${q(sid, '.badge')}?.textContent === ${JSON.stringify(text)})`);
+
+    await open(LEGACY_APP);
+    await ev('T.waitFor(() => T.rows().length === 1)');
+    check('status: table has a Status column between Course and Actions', JSON.stringify(await ev('[...document.querySelectorAll("#students-table th")].map((th) => th.textContent)')) === '["ID","Name","Email","Course","Status","Actions"]');
+    check('status: a legacy record without status shows badge Active and the file is untouched by loading',
+      (await badge(1)) === 'Active' && (await ev(`${q(1, '.badge')}.className`)) === 'badge badge-active' && fs.readFileSync(legacyFile, 'utf8') === legacyBytes);
+    await legacyApi('POST', '', { name: 'Dana Inactive', email: 'dana@example.com', course: 'Art', status: 'Inactive' });
+    await open(LEGACY_APP);
+    await ev('T.waitFor(() => T.rows().length === 2)');
+    check('status: badges render for both statuses with matching button labels',
+      (await badge(1)) === 'Active' && (await badge(2)) === 'Inactive' && (await ev(`${q(2, '.badge')}.className`)) === 'badge badge-inactive'
+      && (await toggleLabel(1)) === 'Mark Inactive' && (await toggleLabel(2)) === 'Mark Active');
+
+    await toggle(1);
+    check('status: toggle shows the success message from the server response', await messageIs('Legacy Lee is now Inactive.'));
+    await badgeBecomes(1, 'Inactive');
+    check('status: toggle flips the badge and the button label, message is a polite status',
+      (await badge(1)) === 'Inactive' && (await toggleLabel(1)) === 'Mark Active' && (await ev('T.$("message").className')) === 'alert success' && (await ev('T.$("message").getAttribute("role")')) === 'status'
+      && (await badge(2)) === 'Inactive');
+    check('status: after the first save the data file carries status for every record', JSON.parse(fs.readFileSync(legacyFile, 'utf8')).students.every((s) => s.status === 'Active' || s.status === 'Inactive'));
+    await toggle(1);
+    await messageIs('Legacy Lee is now Active.');
+    await badgeBecomes(1, 'Active');
+    check('status: a second toggle reverses it', (await badge(1)) === 'Active' && (await toggleLabel(1)) === 'Mark Inactive');
+
+    await legacyApi('PUT', '/1', { name: 'Lee Renamed', email: 'lee@example.com', course: 'History' });
+    check('status: the page still shows the old name before the toggle', JSON.stringify((await ev('T.rows()'))[0]) === '["1","Legacy Lee","lee@example.com","History"]');
+    await toggle(1);
+    check('status: DR-21 success message uses the name from the server response', await messageIs('Lee Renamed is now Inactive.'));
+    await badgeBecomes(1, 'Inactive');
+
+    await legacyApi('DELETE', '/2');
+    await toggle(2);
+    check('status: toggling a student deleted in the background shows a readable alert',
+      (await ev('T.waitFor(() => !T.$("message").hidden && T.$("message").className === "alert error")')) && (await ev('T.$("message").textContent')) === 'Student 2 not found. It may have been deleted.' && (await ev('T.$("message").getAttribute("role")')) === 'alert');
+    check('status: that row disappears after the reload and the other row is unchanged', (await ev('T.waitFor(() => T.rows().length === 1)')) && (await badge(2)) === null && (await badge(1)) === 'Inactive');
+    await toggle(1);
+    await messageIs('Lee Renamed is now Active.');
+    check('status: the previous error banner is replaced when a toggle starts', (await ev('T.$("message").className')) === 'alert success' && !/not found/.test(await ev('T.$("message").textContent')));
+    await ev(`window.__realFetch = window.fetch; window.__patchCalls = 0;
+      window.fetch = (url, opts) => (opts && opts.method === 'PATCH'
+        ? (window.__patchCalls++, Promise.resolve(new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong on the server.' } }), { status: 500, headers: { 'Content-Type': 'application/json' } })))
+        : window.__realFetch(url, opts)); true`);
+    await toggle(1);
+    const failShown = await ev('T.waitFor(() => !T.$("message").hidden && T.$("message").className === "alert error")');
+    await ev('window.fetch = window.__realFetch; true');
+    check('status: a failed toggle (HTTP 500) shows a readable alert and leaves the row unchanged',
+      failShown && (await ev('window.__patchCalls')) === 1 && (await ev('T.$("message").textContent')) === 'Something went wrong on the server.'
+      && (await ev('T.$("message").getAttribute("role")')) === 'alert' && (await badge(1)) === 'Active' && (await toggleLabel(1)) === 'Mark Inactive' && (await ev('T.rows().length')) === 1);
+
+    // 11. Screenshots + responsive
     if (OUT) fs.writeFileSync(path.join(OUT, 'desktop.png'), Buffer.from((await send('Page.captureScreenshot', {})).result.data, 'base64'));
     await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
     await open(APP);
@@ -195,7 +263,7 @@ async function main() {
     check('mobile: layout is a single column', (await ev('getComputedStyle(document.querySelector(".layout")).gridTemplateColumns.split(" ").length')) === 1);
     if (OUT) fs.writeFileSync(path.join(OUT, 'mobile.png'), Buffer.from((await send('Page.captureScreenshot', { captureBeyondViewport: true })).result.data, 'base64'));
 
-    // 11. Console health (HTTP 4xx from intentionally invalid requests are expected network log lines)
+    // 12. Console health (HTTP 4xx from intentionally invalid requests are expected network log lines)
     const bad = events.filter((e) => e.method === 'Runtime.exceptionThrown'
       || (e.method === 'Log.entryAdded' && e.params.entry.level === 'error' && e.params.entry.source !== 'network')
       || (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error'));
@@ -205,8 +273,12 @@ async function main() {
     chrome.kill();
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
+    if (legacyServer) {
+      legacyServer.closeAllConnections();
+      await new Promise((resolve) => legacyServer.close(resolve));
+    }
     await delay(800);
-    for (const dir of [profile, dataDir]) {
+    for (const dir of [profile, dataDir, legacyDir]) {
       try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* browser still releasing files */ }
     }
   }

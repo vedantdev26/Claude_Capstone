@@ -6,6 +6,8 @@ const MAX_TEXT = 100;
 const MAX_EMAIL = 254;
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const ID_RE = /^[1-9]\d*$/;
+const STATUSES = ['Active', 'Inactive'];
+const DEFAULT_STATUS = 'Active';
 
 function readText(source, key) {
   if (!Object.hasOwn(source, key)) return { error: 'is required' };
@@ -31,8 +33,16 @@ const RULES = [
   ['course', (t) => checkLength(t, MAX_TEXT)],
 ];
 
-function validateStudent(input) {
-  const source = input !== null && typeof input === 'object' && !Array.isArray(input) ? input : {};
+function checkStatus(value) {
+  return STATUSES.includes(value) ? null : 'must be "Active" or "Inactive"';
+}
+
+function asObject(input) {
+  return input !== null && typeof input === 'object' && !Array.isArray(input) ? input : {};
+}
+
+function validateStudent(input, { acceptStatus = false } = {}) {
+  const source = asObject(input);
   const fields = [];
   const clean = {};
   for (const [field, check] of RULES) {
@@ -41,8 +51,23 @@ function validateStudent(input) {
     if (message) fields.push({ field, message });
     else clean[field] = text;
   }
+  let status = DEFAULT_STATUS;
+  if (acceptStatus && Object.hasOwn(source, 'status')) {
+    const message = checkStatus(source.status);
+    if (message) fields.push({ field: 'status', message });
+    else status = source.status;
+  }
   if (fields.length > 0) throw new ValidationError(fields);
-  return { name: clean.name, email: clean.email, course: clean.course };
+  const result = { name: clean.name, email: clean.email, course: clean.course };
+  if (acceptStatus) result.status = status;
+  return result;
+}
+
+function validateStatusChange(input) {
+  const source = asObject(input);
+  const message = Object.hasOwn(source, 'status') ? checkStatus(source.status) : 'is required';
+  if (message) throw new ValidationError([{ field: 'status', message }]);
+  return source.status;
 }
 
 function parseId(segment) {
@@ -65,4 +90,4 @@ function parseId(segment) {
   return id;
 }
 
-module.exports = { validateStudent, parseId };
+module.exports = { validateStudent, validateStatusChange, parseId, STATUSES, DEFAULT_STATUS };

@@ -264,10 +264,237 @@
         "report": "docs/verification-report-frontend.md"
       },
       "pr": {
+        "status": "merged",
+        "url": "https://github.com/vedantdev26/Claude_Capstone/pull/2",
+        "number": 2
+      }
+    },
+    {
+      "name": "student-status",
+      "userStory": "As an administrator, I want to mark a student as Active or Inactive so that I can manage student enrollment status.",
+      "branch": "feature/student-status",
+      "baseCommit": "bf91143",
+      "currentPhase": 8,
+      "approvedPlanAt": "2026-11-25T09:25:31.546Z",
+      "approvedBy": "user",
+      "decisions": [
+        "PATCH /students/{id}/status {status}; PUT preserves status",
+        "values exactly Active|Inactive (case-sensitive), else 422",
+        "POST accepts optional status, default Active; legacy records default Active",
+        "dashboard: status badge + per-row toggle; no status filter"
+      ],
+      "phases": {
+        "1": {
+          "name": "requirements",
+          "agent": "requirements-agent",
+          "artifact": "docs/requirements.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:29:18.059Z"
+        },
+        "2": {
+          "name": "architecture",
+          "agent": "architecture-agent",
+          "artifact": "docs/architecture.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:36:30.620Z"
+        },
+        "3": {
+          "name": "design-review",
+          "agent": "design-review-agent",
+          "artifact": "docs/design-review.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:45:11.393Z"
+        },
+        "4": {
+          "name": "planning",
+          "agent": "planning-agent",
+          "artifact": "docs/impl-plan.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T09:48:55.998Z"
+        },
+        "5": {
+          "name": "implementation",
+          "agent": "implementation-agent",
+          "artifact": "src/, public/, tests/",
+          "status": "approved",
+          "approvedAt": "2026-11-25T10:11:47.616Z"
+        },
+        "6": {
+          "name": "code-review",
+          "agent": "code-review-agent",
+          "artifact": "docs/code-review-student-status.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T10:21:54.986Z"
+        },
+        "7": {
+          "name": "verification",
+          "agent": "verification-agent",
+          "artifact": "docs/verification-report-student-status.md",
+          "status": "approved",
+          "approvedAt": "2026-11-25T10:27:46.622Z"
+        },
+        "8": {
+          "name": "pull-request",
+          "agent": "pr-agent",
+          "artifact": "pull request",
+          "status": "awaiting_approval"
+        }
+      },
+      "tasks": [
+        {
+          "id": "S-1",
+          "title": "`src/validation.js`: status rules",
+          "status": "done"
+        },
+        {
+          "id": "S-2",
+          "title": "Validation tests for status",
+          "status": "done"
+        },
+        {
+          "id": "S-3",
+          "title": "`src/studentRepository.js`: status support, plus minimal exact-shape test edits",
+          "status": "done"
+        },
+        {
+          "id": "S-4",
+          "title": "Repository status tests (incl. DR-19 load/save)",
+          "status": "done"
+        },
+        {
+          "id": "S-5",
+          "title": "`src/studentService.js`: create with status and `setStatus`",
+          "status": "done"
+        },
+        {
+          "id": "S-6",
+          "title": "Service status tests (incl. DR-19 create)",
+          "status": "done"
+        },
+        {
+          "id": "S-7",
+          "title": "`src/routes.js`: status path",
+          "status": "done"
+        },
+        {
+          "id": "S-8",
+          "title": "API tests: PATCH behavior and status in all responses",
+          "status": "done"
+        },
+        {
+          "id": "S-9",
+          "title": "API tests: routing, ID edges, legacy data and log hygiene",
+          "status": "done"
+        },
+        {
+          "id": "S-10",
+          "title": "`public/app.js`: `createApi.setStatus` and its tests",
+          "status": "done"
+        },
+        {
+          "id": "S-11",
+          "title": "Dashboard: Status column and badge",
+          "status": "done"
+        },
+        {
+          "id": "S-12",
+          "title": "Dashboard: per-row status toggle",
+          "status": "done"
+        },
+        {
+          "id": "S-13",
+          "title": "`scripts/browser-check.js`: status section (DR-21, DR-23)",
+          "status": "done"
+        },
+        {
+          "id": "S-14",
+          "title": "README: status",
+          "status": "done"
+        },
+        {
+          "id": "S-15",
+          "title": "`docs/CHANGELOG.md`: status entry",
+          "status": "done"
+        },
+        {
+          "id": "S-16",
+          "title": "Final check: full suite and clean tree",
+          "status": "done"
+        }
+      ],
+      "pr": {
         "status": "not_created",
         "url": null,
         "number": null
-      }
+      },
+      "approvals": [
+        {
+          "phase": 1,
+          "name": "requirements",
+          "at": "2026-11-25T09:29:18.059Z",
+          "by": "user",
+          "note": "Approved with NFR-7/AC-29 reworded (exact-shape tests may add status:Active); PUT ignores status"
+        },
+        {
+          "phase": 2,
+          "name": "architecture",
+          "at": "2026-11-25T09:36:30.620Z",
+          "by": "user",
+          "note": "Defaults accepted: 400 INVALID_JSON for empty/non-JSON PATCH body; /students//status -> 400 INVALID_ID"
+        },
+        {
+          "phase": 3,
+          "name": "design-review",
+          "at": "2026-11-25T09:45:11.393Z",
+          "by": "user",
+          "note": "Option A: DR-16,17,18,20,22 applied to architecture.md; DR-19,21,23 carried to planning/implementation"
+        },
+        {
+          "phase": 4,
+          "name": "planning",
+          "at": "2026-11-25T09:48:55.998Z",
+          "by": "user"
+        },
+        {
+          "phase": 5,
+          "name": "implementation",
+          "at": "2026-11-25T10:11:47.616Z",
+          "by": "user",
+          "note": "npm test 220/220; browser check 47/47"
+        },
+        {
+          "phase": 6,
+          "name": "code-review",
+          "at": "2026-11-25T10:21:54.986Z",
+          "by": "user",
+          "note": "CR-1, CR-2 fixed; re-review verdict APPROVE"
+        },
+        {
+          "phase": 7,
+          "name": "verification",
+          "at": "2026-11-25T10:27:46.622Z",
+          "by": "user",
+          "note": "npm test 220/220; browser 48/48; live HTTP 66 requests"
+        }
+      ],
+      "carriedFindings": [
+        "DR-19: tests that loader and service.create pass acceptStatus (Inactive must not reset to Active)",
+        "DR-21: toggle success message uses server response",
+        "DR-23: drop busy-guard in-flight and duplicate textContent/CSP checks from browser-check.js"
+      ],
+      "codeReview": {
+        "status": "approve (CR-1, CR-2 fixed and re-reviewed)",
+        "report": "docs/code-review-student-status.md"
+      },
+      "verification": {
+        "status": "passed",
+        "lastRun": "2026-11-25T10:27:13.962Z",
+        "npmTest": "220/220",
+        "browserCheck": "48/48",
+        "liveHttp": "66 requests, failed requests left data byte-identical",
+        "report": "docs/verification-report-student-status.md"
+      },
+      "prDescription": "docs/pr-description-student-status.md"
     }
   ]
 }

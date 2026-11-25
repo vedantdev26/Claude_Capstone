@@ -1,6 +1,6 @@
 'use strict';
 
-const { validateStudent } = require('./validation');
+const { validateStudent, validateStatusChange } = require('./validation');
 const { NotFoundError, ConflictError } = require('./errors');
 
 function createStudentService(repository) {
@@ -17,7 +17,7 @@ function createStudentService(repository) {
 
   return {
     create(input) {
-      const data = validateStudent(input);
+      const data = validateStudent(input, { acceptStatus: true });
       assertEmailFree(data.email);
       return repository.create(data);
     },
@@ -31,6 +31,11 @@ function createStudentService(repository) {
       const data = validateStudent(input);
       assertEmailFree(data.email, id);
       return repository.update(id, data);
+    },
+
+    setStatus(id, input) {
+      requireStudent(id);
+      return repository.setStatus(id, validateStatusChange(input));
     },
 
     remove(id) {

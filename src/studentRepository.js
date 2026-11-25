@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { validateStudent } = require('./validation');
+const { validateStudent, DEFAULT_STATUS } = require('./validation');
 const { ValidationError } = require('./errors');
 
 class DataFileError extends Error {
@@ -67,7 +67,7 @@ function loadFile(filePath) {
     if (students.has(raw.id)) throw new DataFileError(`${row} has a duplicate id`);
     let data;
     try {
-      data = validateStudent(raw);
+      data = validateStudent(raw, { acceptStatus: true });
     } catch (err) {
       if (err instanceof ValidationError) throw new DataFileError(`${row} failed validation`);
       throw err;
@@ -132,7 +132,13 @@ function createStudentRepository({ filePath, writer } = {}) {
     },
 
     create(data) {
-      const record = { id: nextId, name: data.name, email: data.email, course: data.course };
+      const record = {
+        id: nextId,
+        name: data.name,
+        email: data.email,
+        course: data.course,
+        status: data.status ?? DEFAULT_STATUS,
+      };
       const next = new Map(students).set(record.id, record);
       commit(next, nextId + 1);
       return { ...record };
@@ -140,7 +146,21 @@ function createStudentRepository({ filePath, writer } = {}) {
 
     update(id, data) {
       if (!students.has(id)) return undefined;
-      const record = { id, name: data.name, email: data.email, course: data.course };
+      const record = {
+        id,
+        name: data.name,
+        email: data.email,
+        course: data.course,
+        status: students.get(id).status,
+      };
+      commit(new Map(students).set(id, record), nextId);
+      return { ...record };
+    },
+
+    setStatus(id, status) {
+      const existing = students.get(id);
+      if (!existing) return undefined;
+      const record = { ...existing, status };
       commit(new Map(students).set(id, record), nextId);
       return { ...record };
     },

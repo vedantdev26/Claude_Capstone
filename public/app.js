@@ -10,15 +10,17 @@ class ApiError extends Error {
 }
 
 function createApi(fetchFn, base) {
-  async function call(method, id, body) {
+  async function call(method, id, body, suffix) {
     const options = { method, headers: {} };
     if (body !== undefined) {
       options.headers['Content-Type'] = 'application/json';
       options.body = JSON.stringify(body);
     }
+    let url = id === undefined ? base : `${base}/${id}`;
+    if (suffix) url += `/${suffix}`;
     let res;
     try {
-      res = await fetchFn(id === undefined ? base : `${base}/${id}`, options);
+      res = await fetchFn(url, options);
     } catch {
       throw new ApiError(0, { code: 'NETWORK_ERROR', message: 'Cannot reach the server. Check that it is running.' });
     }
@@ -42,6 +44,7 @@ function createApi(fetchFn, base) {
     create: (student) => call('POST', undefined, student),
     update: (id, student) => call('PUT', id, student),
     remove: (id) => call('DELETE', id),
+    setStatus: (id, status) => call('PATCH', id, { status }, 'status'),
   };
 }
 
@@ -145,8 +148,15 @@ function initDashboard(doc, api) {
       cell(tr, 'Name', student.name);
       cell(tr, 'Email', student.email);
       cell(tr, 'Course', student.course);
+      const inactive = student.status === 'Inactive';
+      const badge = doc.createElement('span');
+      badge.className = inactive ? 'badge badge-inactive' : 'badge badge-active';
+      badge.textContent = inactive ? 'Inactive' : 'Active';
+      cell(tr, 'Status', '').appendChild(badge);
       const actions = cell(tr, 'Actions', '', 'actions');
-      actions.append(actionButton('Edit', 'edit', 'btn-secondary'), actionButton('Delete', 'delete', 'btn-danger'));
+      const toggle = actionButton(inactive ? 'Mark Active' : 'Mark Inactive', 'toggle', 'btn-secondary');
+      toggle.setAttribute('aria-label', `${toggle.textContent}: ${student.name}`);
+      actions.append(actionButton('Edit', 'edit', 'btn-secondary'), toggle, actionButton('Delete', 'delete', 'btn-danger'));
       body.appendChild(tr);
     }
     tableWrap.hidden = visible.length === 0;
@@ -271,6 +281,27 @@ function initDashboard(doc, api) {
     search.focus();
   }
 
+  async function toggleStatus(student) {
+    clearMessage();
+    const target = student.status === 'Inactive' ? 'Active' : 'Inactive';
+    let updated;
+    try {
+      updated = await api.setStatus(student.id, target);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+        if (editingId === student.id) resetForm();
+        showMessage(`${err.message}. It may have been deleted.`, 'error');
+        await load();
+      } else {
+        showMessage(err instanceof ApiError ? err.message : 'Unexpected error. Please try again.', 'error');
+      }
+      return;
+    }
+    showMessage(`${updated.name} is now ${updated.status}.`, 'success');
+    await load();
+    body.querySelector(`tr[data-id="${student.id}"] button[data-action="toggle"]`)?.focus();
+  }
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     guarded(save);
@@ -292,9 +323,12 @@ function initDashboard(doc, api) {
     const id = Number(button.closest('tr').dataset.id);
     const student = students.find((s) => s.id === id);
     if (!student) return;
-    if (button.dataset.action === 'edit') {
+    const action = button.dataset.action;
+    if (action === 'edit') {
       startEdit(student);
-    } else {
+    } else if (action === 'toggle') {
+      guarded(() => toggleStatus(student));
+    } else if (action === 'delete') {
       pendingDelete = student;
       confirmText.textContent = `Delete ${student.name} (${student.email})? This cannot be undone.`;
       dialog.returnValue = '';
