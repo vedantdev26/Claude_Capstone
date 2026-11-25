@@ -1,7 +1,7 @@
 {
   "project": "student-management-system",
   "userStory": "As an administrator, I want to add, view, update, and delete student records so that I can manage student information efficiently.",
-  "currentPhase": 4,
+  "currentPhase": 5,
   "phases": {
     "1": {
       "name": "requirements",
@@ -28,14 +28,14 @@
       "name": "planning",
       "agent": "planning-agent",
       "artifact": "docs/impl-plan.md",
-      "status": "in_progress",
-      "approvedAt": null
+      "status": "approved",
+      "approvedAt": "2026-11-25T12:19:26+05:30"
     },
     "5": {
       "name": "implementation",
       "agent": "implementation-agent",
       "artifact": "src/, tests/",
-      "status": "pending",
+      "status": "in_progress",
       "approvedAt": null
     },
     "6": {
@@ -79,11 +79,143 @@
       "at": "2026-11-25T12:15:56+05:30",
       "by": "user",
       "note": "Option A: DR-1..DR-14 applied to architecture.md; DR-15 partial"
+    },
+    {
+      "phase": 4,
+      "name": "planning",
+      "at": "2026-11-25T12:19:26+05:30",
+      "by": "user"
     }
   ],
   "openQuestions": [],
   "blockers": [],
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "T-1",
+      "title": "Scaffold: `package.json`, folders, `.gitignore`",
+      "status": "todo"
+    },
+    {
+      "id": "T-2",
+      "title": "`src/errors.js`: typed errors",
+      "status": "todo"
+    },
+    {
+      "id": "T-3",
+      "title": "`src/validation.js`: student input validator",
+      "status": "todo"
+    },
+    {
+      "id": "T-4",
+      "title": "`src/validation.js`: ID validator",
+      "status": "todo"
+    },
+    {
+      "id": "T-5",
+      "title": "Unit tests: `tests/validation.test.js`",
+      "status": "todo"
+    },
+    {
+      "id": "T-6",
+      "title": "`src/studentRepository.js`: in-memory store with injectable writer",
+      "status": "todo"
+    },
+    {
+      "id": "T-7",
+      "title": "Repository: default atomic writer",
+      "status": "todo"
+    },
+    {
+      "id": "T-8",
+      "title": "Repository: data-file load rules",
+      "status": "todo"
+    },
+    {
+      "id": "T-9",
+      "title": "Repository tests: `tests/studentRepository.test.js`",
+      "status": "todo"
+    },
+    {
+      "id": "T-10",
+      "title": "`src/studentService.js`: business rules",
+      "status": "todo"
+    },
+    {
+      "id": "T-11",
+      "title": "Service tests: `tests/studentService.test.js`",
+      "status": "todo"
+    },
+    {
+      "id": "T-12",
+      "title": "`src/routes.js`: routing rule and dispatch",
+      "status": "todo"
+    },
+    {
+      "id": "T-13",
+      "title": "Routes: request body handling",
+      "status": "todo"
+    },
+    {
+      "id": "T-14",
+      "title": "Routes: error mapper and logging",
+      "status": "todo"
+    },
+    {
+      "id": "T-15",
+      "title": "`src/server.js`: `createServer` and bootstrap",
+      "status": "todo"
+    },
+    {
+      "id": "T-16",
+      "title": "API tests: harness, happy path and routing",
+      "status": "todo"
+    },
+    {
+      "id": "T-17",
+      "title": "API tests: error rows, check order and NFR-2",
+      "status": "todo"
+    },
+    {
+      "id": "T-18",
+      "title": "API tests: failed save, data file, bind and log hygiene",
+      "status": "todo"
+    },
+    {
+      "id": "T-19",
+      "title": "README",
+      "status": "todo"
+    },
+    {
+      "id": "T-20",
+      "title": "Final check: full suite and clean tree",
+      "status": "todo"
+    },
+    {
+      "id": "T-6",
+      "title": "T-3 (repository uses the validator for load checks)",
+      "status": "todo"
+    },
+    {
+      "id": "T-10",
+      "title": "T-3, T-6",
+      "status": "todo"
+    },
+    {
+      "id": "T-12",
+      "title": "T-4, T-10",
+      "status": "todo"
+    },
+    {
+      "id": "T-15",
+      "title": "T-8, T-13, T-14",
+      "status": "todo"
+    },
+    {
+      "id": "T-20",
+      "title": "all test tasks and the README (T-5, T-9, T-11, T-17, T-18, T-19)",
+      "status": "todo"
+    }
+  ],
   "verification": {
     "status": "not_run",
     "lastRun": null,
