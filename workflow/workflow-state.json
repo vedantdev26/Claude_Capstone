@@ -316,7 +316,7 @@
           "name": "implementation",
           "agent": "implementation-agent",
           "artifact": "src/, public/, tests/",
-          "status": "in_progress"
+          "status": "awaiting_approval"
         },
         "6": {
           "name": "code-review",
@@ -406,17 +406,17 @@
         {
           "id": "S-14",
           "title": "README: status",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-15",
           "title": "`docs/CHANGELOG.md`: status entry",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-16",
           "title": "Final check: full suite and clean tree",
-          "status": "todo"
+          "status": "done"
         }
       ],
       "pr": {
