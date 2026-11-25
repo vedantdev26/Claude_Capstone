@@ -8,11 +8,11 @@
 - Specific error codes and messages for validation (422), conflict (409), not found (404), invalid ID (400), invalid JSON (400), method not allowed (405), payload too large (413), unsupported media type (415) and internal error (500).
 - JSON file persistence with atomic writes; server refuses to start on an invalid data file without modifying it.
 - Configuration through `PORT`, `HOST` and `DATA_FILE`; loopback bind by default.
-- 110 automated tests across API, service, repository and validation layers.
+- 113 automated tests across API, service, repository and validation layers.
 - README with setup, usage and error examples; phase documents under `docs/`.
 
 ### Changed
 - None.
 
 ### Fixed
-- None. Known minor issues F-1..F-7 are accepted unfixed; see `docs/pr-description.md`.
+- F-1 and F-2 fixed after code review; F-3/F-4 accepted deviations (architecture s10); F-5..F-7 open, minor. See `docs/pr-description.md`.

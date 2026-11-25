@@ -107,7 +107,9 @@
     }
   ],
   "openQuestions": [],
-  "blockers": [],
+  "blockers": [
+    "No git remote configured and gh not authenticated: need repository URL and `gh auth login` to push, create PR and merge"
+  ],
   "tasks": [
     {
       "id": "T-1",
@@ -212,8 +214,8 @@
   ],
   "verification": {
     "status": "passed",
-    "lastRun": "2026-11-25T07:17:59.700Z",
-    "summary": "110/110 tests pass; live server checks match README; F-1..F-7 known issues"
+    "lastRun": "2026-11-25T07:32:56.779Z",
+    "summary": "Re-verified after F-1/F-2 fixes: 113/113 tests pass; live checks for PORT, EADDRINUSE, client abort, 413, HOST=127.0.0.1; F-3/F-4 accepted deviations (architecture s10); F-5..F-7 open"
   },
   "git": {
     "branch": "feature/student-management",
