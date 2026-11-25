@@ -361,27 +361,27 @@
         {
           "id": "S-5",
           "title": "`src/studentService.js`: create with status and `setStatus`",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-6",
           "title": "Service status tests (incl. DR-19 create)",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-7",
           "title": "`src/routes.js`: status path",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-8",
           "title": "API tests: PATCH behavior and status in all responses",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-9",
           "title": "API tests: routing, ID edges, legacy data and log hygiene",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-10",

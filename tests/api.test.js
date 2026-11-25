@@ -583,3 +583,368 @@ describe('API: bootstrap and log hygiene', () => {
     }
   });
 });
+
+describe('API: status (Amendment 3)', () => {
+  const badStatuses = ['active', 'INACTIVE', ' Active', 'Active ', 'Active\n', '', null, 1, true, [], {}, 'Suspended'];
+  let env;
+  beforeEach(async () => {
+    env = makeEnv();
+    await start(env);
+  });
+  afterEach(() => stop(env));
+
+  const list = async () => (await send(env.port, {})).json;
+  const patch = (id, payload, headers) => jsonRequest(env.port, 'PATCH', `/students/${id}/status`, payload, headers);
+  const fieldNames = (res) => res.json.error.fields.map((f) => f.field);
+
+  test('POST without status is Active; with Inactive it stays Inactive through create and GET (DR-19)', async () => {
+    const plain = await jsonRequest(env.port, 'POST', '/students', ada);
+    assert.equal(plain.status, 201);
+    assert.deepEqual(plain.json, { id: 1, ...ada, status: 'Active' });
+    const off = await jsonRequest(env.port, 'POST', '/students', { ...bob, status: 'Inactive' });
+    assert.equal(off.status, 201);
+    assert.deepEqual(off.json, { id: 2, ...bob, status: 'Inactive' });
+    assert.equal(off.headers.location, '/students/2');
+    assert.deepEqual((await send(env.port, { path: '/students/2' })).json, { id: 2, ...bob, status: 'Inactive' });
+    const onDisk = JSON.parse(fs.readFileSync(env.file, 'utf8')).students.map((s) => s.status);
+    assert.deepEqual(onDisk, ['Active', 'Inactive']);
+  });
+
+  test('POST with an invalid status is 422 naming status and stores nothing (AC-20)', async () => {
+    for (const status of badStatuses) {
+      const res = await jsonRequest(env.port, 'POST', '/students', { ...ada, status });
+      assertError(res, 422, 'VALIDATION_ERROR');
+      assert.deepEqual(fieldNames(res), ['status']);
+      assert.ok(res.json.error.message.includes('status'));
+    }
+    assert.deepEqual(await list(), []);
+    assert.equal(fs.existsSync(env.file), false);
+  });
+
+  test('POST multi-field error lists status with the other fields', async () => {
+    const res = await jsonRequest(env.port, 'POST', '/students', { name: '', email: 'abc', course: 'x', status: 'nope' });
+    assertError(res, 422, 'VALIDATION_ERROR');
+    assert.deepEqual(fieldNames(res), ['name', 'email', 'status']);
+  });
+
+  test('PATCH flips Inactive then Active, returns the full student and later GET agrees (AC-21)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    await jsonRequest(env.port, 'POST', '/students', bob);
+    const off = await patch(1, { status: 'Inactive' });
+    assert.equal(off.status, 200);
+    assert.match(off.headers['content-type'], /^application\/json/);
+    assert.deepEqual(off.json, { id: 1, ...ada, status: 'Inactive' });
+    assert.deepEqual((await send(env.port, { path: '/students/1' })).json, off.json);
+    const on = await patch(1, { status: 'Active' });
+    assert.deepEqual(on.json, { id: 1, ...ada, status: 'Active' });
+    assert.deepEqual((await send(env.port, { path: '/students/1' })).json, on.json);
+    assert.deepEqual((await send(env.port, { path: '/students/2' })).json, { id: 2, ...bob, status: 'Active' });
+  });
+
+  test('PATCH to the current status is 200 and still saves', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const res = await patch(1, { status: 'Active' });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json, { id: 1, ...ada, status: 'Active' });
+  });
+
+  test('PATCH persists across a restart', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    await patch(1, { status: 'Inactive' });
+    await close(env.server);
+    env.server = createServer({ filePath: env.file, log: () => {} });
+    env.port = await listen(env.server);
+    assert.deepEqual(await list(), [{ id: 1, ...ada, status: 'Inactive' }]);
+  });
+
+  test('PATCH with {} or an invalid status on an existing student is 422 naming status, data unchanged (AC-20, AC-22)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const before = fs.readFileSync(env.file, 'utf8');
+    const empty = await patch(1, {});
+    assertError(empty, 422, 'VALIDATION_ERROR');
+    assert.deepEqual(empty.json.error.fields, [{ field: 'status', message: 'is required' }]);
+    for (const status of badStatuses) {
+      const res = await patch(1, { status });
+      assertError(res, 422, 'VALIDATION_ERROR');
+      assert.deepEqual(fieldNames(res), ['status']);
+    }
+    assert.deepEqual(await list(), [{ id: 1, ...ada, status: 'Active' }]);
+    assert.equal(fs.readFileSync(env.file, 'utf8'), before);
+  });
+
+  test('PATCH and POST reject the same status values (NFR-3)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    for (const status of badStatuses) {
+      const viaPost = await jsonRequest(env.port, 'POST', '/students', { ...bob, status });
+      const viaPatch = await patch(1, { status });
+      assert.equal(viaPost.status, viaPatch.status);
+      assert.deepEqual(viaPost.json.error.fields, viaPatch.json.error.fields);
+    }
+  });
+
+  test('PATCH with an empty, invalid-JSON or non-object body is 400 INVALID_JSON (AC-22, DR-18)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    for (const body of ['', '{"status":', '[]', 'null', '"Inactive"', '5']) {
+      assertError(await patch(1, body), 400, 'INVALID_JSON');
+    }
+    assert.deepEqual(await list(), [{ id: 1, ...ada, status: 'Active' }]);
+  });
+
+  test('PATCH without a JSON content type is 415, including an empty body (DR-18b)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const url = '/students/1/status';
+    const none = await send(env.port, { method: 'PATCH', path: url, body: '' });
+    assertError(none, 415, 'UNSUPPORTED_MEDIA_TYPE');
+    const body = JSON.stringify({ status: 'Inactive' });
+    const text = await send(env.port, { method: 'PATCH', path: url, body, headers: { 'Content-Type': 'text/plain' } });
+    assertError(text, 415, 'UNSUPPORTED_MEDIA_TYPE');
+    const noneBody = await send(env.port, { method: 'PATCH', path: url, body });
+    assertError(noneBody, 415, 'UNSUPPORTED_MEDIA_TYPE');
+    assert.equal((await list())[0].status, 'Active');
+  });
+
+  test('PATCH accepts application/json with a charset', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const res = await patch(1, { status: 'Inactive' }, { 'Content-Type': 'application/json; charset=utf-8' });
+    assert.equal(res.status, 200);
+  });
+
+  test('PATCH body over 10 KB is 413 with Connection: close and changes nothing', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const res = await patch(1, JSON.stringify({ status: 'Inactive', pad: 'a'.repeat(20000) }));
+    assertError(res, 413, 'PAYLOAD_TOO_LARGE');
+    assert.equal(res.headers.connection, 'close');
+    const chunk = Buffer.alloc(4096, 'a');
+    const chunked = await send(env.port, {
+      method: 'PATCH',
+      path: '/students/1/status',
+      headers: { 'Content-Type': 'application/json' },
+      chunks: [Buffer.from('{"pad":"'), chunk, chunk, chunk, chunk],
+    });
+    assertError(chunked, 413, 'PAYLOAD_TOO_LARGE');
+    assert.deepEqual(await list(), [{ id: 1, ...ada, status: 'Active' }]);
+  });
+
+  test('check order: unknown id with a valid JSON object is 404 even with a bad status (DR-18a)', async () => {
+    const res = await patch(999, { status: 'nope' });
+    assertError(res, 404, 'NOT_FOUND');
+    assert.match(res.json.error.message, /999/);
+    assertError(await patch(999, { status: 'Inactive' }), 404, 'NOT_FOUND');
+    assertError(await patch(999, {}), 404, 'NOT_FOUND');
+  });
+
+  test('check order: unknown id with an invalid-JSON, empty or array body is 400 INVALID_JSON (DR-18a)', async () => {
+    for (const body of ['{bad', '', '[]']) assertError(await patch(999, body), 400, 'INVALID_JSON');
+  });
+
+  test('check order: invalid id beats content type and body; content type beats body', async () => {
+    assertError(await patch('abc', '{bad'), 400, 'INVALID_ID');
+    const wrongType = await send(env.port, { method: 'PATCH', path: '/students/abc/status', body: 'x', headers: { 'Content-Type': 'text/plain' } });
+    assertError(wrongType, 400, 'INVALID_ID');
+    const badBodyWrongType = await send(env.port, { method: 'PATCH', path: '/students/1/status', body: '{bad', headers: { 'Content-Type': 'text/plain' } });
+    assertError(badBodyWrongType, 415, 'UNSUPPORTED_MEDIA_TYPE');
+  });
+
+  test('PATCH ignores name, email, course and id in the body (DR-18c, FR-23)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    await jsonRequest(env.port, 'POST', '/students', bob);
+    const res = await patch(1, { status: 'Inactive', name: 'Hacked', email: 'bob@example.com', course: 'X', id: 2 });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json, { id: 1, ...ada, status: 'Inactive' });
+    assert.deepEqual(await list(), [{ id: 1, ...ada, status: 'Inactive' }, { id: 2, ...bob, status: 'Active' }]);
+  });
+
+  test('PATCH __proto__ and constructor keys have no effect', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const res = await patch(1, '{"__proto__":{"status":"Inactive","polluted":true},"constructor":{"prototype":{"polluted":true}}}');
+    assertError(res, 422, 'VALIDATION_ERROR');
+    assert.deepEqual(res.json.error.fields, [{ field: 'status', message: 'is required' }]);
+    assert.equal({}.polluted, undefined);
+    assert.equal((await list())[0].status, 'Active');
+  });
+
+  test('PUT ignores a body status, valid or garbage, and preserves Inactive (AC-24)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', { ...ada, status: 'Inactive' });
+    for (const status of ['Active', 'garbage', null, 5]) {
+      const res = await jsonRequest(env.port, 'PUT', '/students/1', { ...ada, name: 'Ada L', status });
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.json, { id: 1, ...ada, name: 'Ada L', status: 'Inactive' });
+    }
+    assert.equal((await send(env.port, { path: '/students/1' })).json.status, 'Inactive');
+    await patch(1, { status: 'Active' });
+    const res = await jsonRequest(env.port, 'PUT', '/students/1', { ...ada, status: 'Inactive' });
+    assert.equal(res.json.status, 'Active');
+  });
+
+  test('status is present in list, get, create, update and PATCH responses (AC-25)', async () => {
+    const created = await jsonRequest(env.port, 'POST', '/students', ada);
+    const got = await send(env.port, { path: '/students/1' });
+    const listed = await send(env.port, {});
+    const updated = await jsonRequest(env.port, 'PUT', '/students/1', { ...ada, name: 'Ada L' });
+    const patched = await patch(1, { status: 'Inactive' });
+    for (const student of [created.json, got.json, listed.json[0], updated.json, patched.json]) {
+      assert.deepEqual(Object.keys(student), ['id', 'name', 'email', 'course', 'status']);
+    }
+  });
+
+  test('an Inactive student still blocks duplicate email on POST and PUT and is listed, got and deleted (AC-26)', async () => {
+    await jsonRequest(env.port, 'POST', '/students', { ...ada, status: 'Inactive' });
+    await jsonRequest(env.port, 'POST', '/students', bob);
+    assertError(await jsonRequest(env.port, 'POST', '/students', { ...bob, email: 'ADA@example.com', name: 'Z' }), 409, 'CONFLICT');
+    assertError(await jsonRequest(env.port, 'PUT', '/students/2', { ...bob, email: 'ada@example.com' }), 409, 'CONFLICT');
+    assert.deepEqual((await list()).map((s) => s.status), ['Inactive', 'Active']);
+    assert.equal((await send(env.port, { path: '/students/1' })).json.status, 'Inactive');
+    assert.equal((await send(env.port, { method: 'DELETE', path: '/students/1' })).status, 204);
+    assert.deepEqual((await list()).map((s) => s.id), [2]);
+  });
+});
+
+describe('API: status PATCH failed save (NFR-2)', () => {
+  const env = makeEnv();
+  before(() => start(env, { failingWriter: true }));
+  after(() => stop(env));
+
+  test('PATCH returns 500 INTERNAL_ERROR with a generic message and leaves state and nextId unchanged', async () => {
+    await jsonRequest(env.port, 'POST', '/students', ada);
+    const before = fs.readFileSync(env.file, 'utf8');
+    env.writerFails = true;
+    const res = await jsonRequest(env.port, 'PATCH', '/students/1/status', { status: 'Inactive' });
+    assertError(res, 500, 'INTERNAL_ERROR');
+    assert.equal(res.json.error.message, 'Internal server error');
+    assert.ok(!res.text.includes('disk full'));
+    env.writerFails = false;
+    assert.deepEqual((await send(env.port, {})).json, [{ id: 1, ...ada, status: 'Active' }]);
+    assert.equal(fs.readFileSync(env.file, 'utf8'), before);
+    assert.equal((await jsonRequest(env.port, 'POST', '/students', bob)).json.id, 2);
+    assert.equal((await jsonRequest(env.port, 'PATCH', '/students/1/status', { status: 'Inactive' })).status, 200);
+  });
+});
+
+describe('API: status routing, ID edges, legacy data and log hygiene', () => {
+  let env;
+  beforeEach(async () => {
+    env = makeEnv();
+    await start(env);
+    await jsonRequest(env.port, 'POST', '/students', ada);
+  });
+  afterEach(() => stop(env));
+
+  const patch = (urlPath, payload = { status: 'Inactive' }) => jsonRequest(env.port, 'PATCH', urlPath, payload);
+  const unchanged = async () => assert.deepEqual((await send(env.port, {})).json, [{ id: 1, ...ada, status: 'Active' }]);
+
+  test('PATCH /students//status is 400 INVALID_ID (empty id)', async () => {
+    const res = await patch('/students//status');
+    assertError(res, 400, 'INVALID_ID');
+    assert.match(res.json.error.message, /required/);
+    await unchanged();
+  });
+
+  test('non-numeric, zero, padded, exponent, hex, trailing-text, NUL and oversize ids are 400 INVALID_ID', async () => {
+    for (const id of ['abc', '0', '007', '1e3', '0x10', '12abc', '1%00', '9007199254740993']) {
+      assertError(await patch(`/students/${id}/status`), 400, 'INVALID_ID');
+    }
+    await unchanged();
+  });
+
+  test('%31 is a valid id on the status path', async () => {
+    const res = await patch('/students/%31/status');
+    assert.equal(res.status, 200);
+    assert.equal(res.json.id, 1);
+    assert.equal(res.json.status, 'Inactive');
+  });
+
+  test('unknown id is 404 NOT_FOUND and nothing changes (AC-23)', async () => {
+    assertError(await patch('/students/2/status'), 404, 'NOT_FOUND');
+    await unchanged();
+  });
+
+  test('PATCH without /status stays 405 METHOD_NOT_ALLOWED (DR-17)', async () => {
+    for (const p of ['/students', '/students/status', '/students//', '/students/1', '/students/']) {
+      assertError(await patch(p), 405, 'METHOD_NOT_ALLOWED');
+    }
+    await unchanged();
+  });
+
+  test('GET, POST, PUT and DELETE on the status path are 405, method checked before the id', async () => {
+    for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
+      for (const p of ['/students/1/status', '/students/abc/status', '/students//status', '/students/999/status']) {
+        const res = await jsonRequest(env.port, method, p, { status: 'Inactive' });
+        assertError(res, 405, 'METHOD_NOT_ALLOWED');
+      }
+    }
+    await unchanged();
+  });
+
+  test('wrong-case, deeper and double-slash paths are 404 ROUTE_NOT_FOUND', async () => {
+    for (const p of ['/students/1/Status', '/students/1/STATUS', '/students/1/status/x', '/students/1//', '/students/1/x', '/students/1/statuses']) {
+      assertError(await patch(p), 404, 'ROUTE_NOT_FOUND');
+    }
+    await unchanged();
+  });
+
+  test('trailing slash and query string are accepted on the status path', async () => {
+    const slash = await patch('/students/1/status/');
+    assert.equal(slash.status, 200);
+    assert.equal(slash.json.status, 'Inactive');
+    const query = await patch('/students/1/status?x=1&status=Active', { status: 'Active' });
+    assert.equal(query.status, 200);
+    assert.equal(query.json.status, 'Active');
+  });
+
+  test('a server started on a legacy file serves Active, leaves the file bytes alone until the first save (AC-19, FR-21)', async () => {
+    await stop(env);
+    env = makeEnv();
+    const legacy = JSON.stringify({ nextId: 3, students: [{ id: 1, ...ada }, { id: 2, ...bob }] });
+    await start(env, {
+      prepare: () => {
+        fs.mkdirSync(path.dirname(env.file), { recursive: true });
+        fs.writeFileSync(env.file, legacy);
+      },
+    });
+    const listed = await send(env.port, {});
+    assert.deepEqual(listed.json, [{ id: 1, ...ada, status: 'Active' }, { id: 2, ...bob, status: 'Active' }]);
+    assert.deepEqual((await send(env.port, { path: '/students/2' })).json, { id: 2, ...bob, status: 'Active' });
+    assert.equal(fs.readFileSync(env.file, 'utf8'), legacy);
+    assertError(await patch('/students/9/status'), 404, 'NOT_FOUND');
+    assert.equal(fs.readFileSync(env.file, 'utf8'), legacy);
+    assert.equal((await patch('/students/2/status')).status, 200);
+    const saved = JSON.parse(fs.readFileSync(env.file, 'utf8')).students;
+    assert.deepEqual(saved.map((s) => s.status), ['Active', 'Inactive']);
+  });
+
+  test('a data file with an invalid present status fails startup and stays untouched', () => {
+    for (const status of [null, '', 'active', 1, 'x']) {
+      const fresh = makeEnv();
+      try {
+        const content = JSON.stringify({ nextId: 2, students: [{ id: 1, ...ada, status }] });
+        fs.mkdirSync(path.dirname(fresh.file), { recursive: true });
+        fs.writeFileSync(fresh.file, content);
+        assert.throws(() => createServer({ filePath: fresh.file }), /Invalid data file/);
+        assert.equal(fs.readFileSync(fresh.file, 'utf8'), content);
+      } finally {
+        fs.rmSync(fresh.dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('logs and error bodies for PATCH contain no request body or query string', async () => {
+    const secret = 'TOPSECRETSTATUS';
+    const responses = [
+      await jsonRequest(env.port, 'PATCH', '/students/1/status?token=QUERYSECRET', { status: secret }),
+      await jsonRequest(env.port, 'PATCH', '/students/1/status?token=QUERYSECRET', `{"status":${secret}}`),
+      await jsonRequest(env.port, 'PATCH', '/students/9/status?token=QUERYSECRET', { status: secret }),
+      await jsonRequest(env.port, 'PATCH', '/students/abc/status?token=QUERYSECRET', { status: secret }),
+      await jsonRequest(env.port, 'PATCH', '/students/1/status?token=QUERYSECRET', { status: 'Inactive', name: secret }),
+      await send(env.port, { method: 'PATCH', path: '/students/1/status?token=QUERYSECRET', body: secret, headers: { 'Content-Type': 'text/plain' } }),
+    ];
+    assert.deepEqual(responses.map((r) => r.status), [422, 400, 404, 400, 200, 415]);
+    for (const res of responses.slice(0, 4).concat(responses.slice(5))) {
+      assert.ok(!res.text.includes(secret));
+      assert.ok(!res.text.includes('QUERYSECRET'));
+    }
+    const output = [...env.logs, ...env.errors].join('\n');
+    assert.ok(!output.includes(secret));
+    assert.ok(!output.includes('QUERYSECRET'));
+    assert.ok(env.logs.some((line) => line.startsWith('PATCH /students/1/status 422 VALIDATION_ERROR')));
+  });
+});
