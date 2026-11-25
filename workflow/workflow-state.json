@@ -386,22 +386,22 @@
         {
           "id": "S-10",
           "title": "`public/app.js`: `createApi.setStatus` and its tests",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-11",
           "title": "Dashboard: Status column and badge",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-12",
           "title": "Dashboard: per-row status toggle",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-13",
           "title": "`scripts/browser-check.js`: status section (DR-21, DR-23)",
-          "status": "todo"
+          "status": "done"
         },
         {
           "id": "S-14",
